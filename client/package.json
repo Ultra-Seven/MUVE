@@ -1,0 +1,30 @@
+{
+  "name": "AccessibleVoz",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@babel/core": "^7.4.3",
+    "@babel/plugin-transform-runtime": "^7.4.3",
+    "@babel/polyfill": "^7.4.3",
+    "@babel/preset-env": "^7.4.3",
+    "async": "2.1.4",
+    "babel-loader": "^8.0.5",
+    "browserify": "14.0.0",
+    "google-protobuf": "3.2.0-rc.2",
+    "jssqlparser": "0.0.9",
+    "uglify-js": "2.4.0",
+    "underscore": "1.8.3",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
+  },
+  "dependencies": {
+    "async": "2.1.4",
+    "babel-cli": "^6.24.1",
+    "core-js": "2"
+  },
+  "scripts": {
+    "build": "webpack --mode production",
+    "tunnel": "ngrok http 7000"
+  },
+  "author": "Ziyun Wei",
+  "license": "MIT"
+}
