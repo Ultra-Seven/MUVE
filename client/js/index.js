@@ -13,6 +13,7 @@ $('select').on('change', function() {
     console.log(name)
 });
 
+
 const ws = new WebSocket("ws://localhost:7000/lucene");
 import _ from "underscore";
 let render_data;
@@ -36,6 +37,10 @@ function draw(query_results) {
         const barChart = new Barchart(barName, []);
         barChart.drawBarChart(query_results[group], group);
     }
+    // Remove watermarks
+    $('.canvasjs-chart-credit').remove();
+
+    console.log($("#bar_0").CanvasJSChart());
 }
 recognition.onresult = function(event) {
     const sentences = event.results[0][0].transcript;

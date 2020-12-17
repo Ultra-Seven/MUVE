@@ -20,8 +20,34 @@ class Barchart {
         });
 
         console.log(render_data);
-        const title = type === "agg" ? key + " for " + groupby : "count" + key + " for " + groupby;
-        this.chart = new CanvasJS.Chart(this.container, {
+        const key_arr = _.filter(key.split(/[()]+/), element => element !== "");
+        const aggTitle = key_arr[0];
+        const target = key_arr.length === 1 ?
+            key_arr[0] : key_arr[1].replaceAll("_"," ");
+        let aggPrefix;
+        if (aggTitle.startsWith("max")) {
+            aggPrefix = "Maximum of ";
+        }
+        else if (aggTitle.startsWith("max")) {
+            aggPrefix = "Minimum of ";
+        }
+        else {
+            aggPrefix = "Count of ";
+        }
+        const title = aggPrefix + target + " for " + groupby;
+        // this.chart = new CanvasJS.Chart(this.container, {
+        //     animationEnabled: true,
+        //     title: {
+        //         text: title,
+        //         fontFamily: "Calibri, Optima, Candara, Verdana, Geneva, sans-serif",
+        //     },
+        //     data: [{
+        //         type: "column",
+        //         dataPoints: render_data
+        //     }]
+        // });
+        // this.chart.render();
+        $("#" + this.container).CanvasJSChart({
             animationEnabled: true,
             title: {
                 text: title,
@@ -32,7 +58,6 @@ class Barchart {
                 dataPoints: render_data
             }]
         });
-        this.chart.render();
     }
 }
 export default Barchart;

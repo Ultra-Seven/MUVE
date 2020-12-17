@@ -13,7 +13,15 @@ public class FuzzyIndex {
 
 
     public static void main(String[] args) throws IOException {
-        String dir = Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR;
-        Operator.create(DATA_FILE, dir);
+        String outputDirPath = Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR;
+        String inputFilePath = DATA_FILE;
+
+        long startTime = System.currentTimeMillis();
+        Indexer index  = new Indexer(inputFilePath, outputDirPath);
+
+        System.out.print("Creating index " + outputDirPath + " from " + inputFilePath + " ... ");
+        index.insert();
+
+        System.out.format("Finished in %.2f seconds.\n", (float) (System.currentTimeMillis() - startTime) / 1000);
     }
 }

@@ -3,12 +3,7 @@ package matching;
 
 import matching.indexing.Indexer;
 import org.apache.commons.codec.language.DoubleMetaphone;
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.phonetic.DoubleMetaphoneFilter;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -21,8 +16,6 @@ import org.apache.lucene.store.FSDirectory;
 import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static matching.FuzzyIndex.*;
 

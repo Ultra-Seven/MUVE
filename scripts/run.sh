@@ -1,0 +1,1 @@
+java -Djava.library.path=/Users/tracy/Downloads/libglpk-java-1.12.0/swig/.libs -jar jars/AccessibleVoz.jar

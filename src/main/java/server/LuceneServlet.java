@@ -1,5 +1,6 @@
 package server;
 
+import config.HostConfig;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
@@ -30,13 +31,12 @@ import static matching.FuzzySearch.searcher;
 public class LuceneServlet {
     private static Map<WsContext, String> userUsernameMap = new ConcurrentHashMap<>();
     private static int nextUserNumber = 1;
-    private static final String MODEL_HOST = "localhost:5050";
     private static Connection connection;
     public static void main(String[] args) throws SQLException {
         Javalin app = Javalin.create(config -> {
             config.addStaticFiles("./html", Location.EXTERNAL);
             config.addSinglePageRoot("/", "./html/sqlova.html", Location.EXTERNAL);
-        }).start(7000);
+        }).start(HostConfig.SERVER_PORT);
 
         String url = "jdbc:monetdb://localhost:50000/nycopen";
         Properties props = new Properties();
@@ -61,7 +61,7 @@ public class LuceneServlet {
                 commands.add("t=" + query_list[0]);
                 commands.add("-F");
                 commands.add("q=" + query_list[1]);
-                commands.add(MODEL_HOST);
+                commands.add(HostConfig.MODEL_HOST);
 
                 ProcessBuilder processBuilder = new ProcessBuilder(commands);
                 Process process = processBuilder.start();
@@ -150,7 +150,7 @@ public class LuceneServlet {
 
                         JSONObject result = new JSONObject();
 
-                        String labelName = isLiteral ? columnName : content;
+                        String labelName = (isLiteral ? columnName : content).replace("_", " ");
                         result.put("template", template).put("params", Arrays.toString(newParams))
                                 .put("score", score).put("results", resultJson).put("type", isAgg ? "agg" : "rows")
                                 .put("label", labelName);
@@ -159,7 +159,7 @@ public class LuceneServlet {
                         rs.close();
                         preparedStatement.close();
                     }
-                    String titleName = isLiteral ? "literal " + groupVal : "column " + groupVal;
+                    String titleName = isLiteral ? groupVal : "column " + groupVal;
                     resultObjet.put(titleName, resultArray);
                 }
             }
@@ -172,7 +172,7 @@ public class LuceneServlet {
             }
         }
         else {
-            session.send("[]");
+            session.send("{}");
         }
     }
 
