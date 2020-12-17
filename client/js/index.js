@@ -14,7 +14,7 @@ $('select').on('change', function() {
 });
 
 
-const ws = new WebSocket("ws://localhost:7000/lucene");
+const ws = new WebSocket("ws://localhost:80/lucene");
 import _ from "underscore";
 let render_data;
 

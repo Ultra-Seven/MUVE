@@ -16,6 +16,11 @@ import net.sf.jsqlparser.statement.select.SelectItem;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.ScoreDoc;
+import org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory;
+import org.eclipse.jetty.http2.HTTP2Cipher;
+import org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory;
+import org.eclipse.jetty.server.*;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import planning.viz.SimpleVizPlanner;
@@ -32,17 +37,67 @@ public class LuceneServlet {
     private static Map<WsContext, String> userUsernameMap = new ConcurrentHashMap<>();
     private static int nextUserNumber = 1;
     private static Connection connection;
+
+    private static Server createHttp2Server() {
+        Server server = new Server();
+
+        ServerConnector connector = new ServerConnector(server);
+        connector.setPort(80);
+        server.addConnector(connector);
+
+        // HTTP Configuration
+        HttpConfiguration httpConfig = new HttpConfiguration();
+        httpConfig.setSendServerVersion(false);
+        httpConfig.setSecureScheme("https");
+        httpConfig.setSecurePort(HostConfig.SERVER_PORT);
+
+        // SSL Context Factory for HTTPS and HTTP/2
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setKeyStorePath(LuceneServlet.class.getResource("/keystore.jks").toExternalForm()); // replace with your real keystore
+        sslContextFactory.setKeyStorePassword("password"); // replace with your real password
+        sslContextFactory.setCipherComparator(HTTP2Cipher.COMPARATOR);
+        sslContextFactory.setProvider("Conscrypt");
+
+        // HTTPS Configuration
+        HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
+        httpsConfig.addCustomizer(new SecureRequestCustomizer());
+
+        // HTTP/2 Connection Factory
+        HTTP2ServerConnectionFactory h2 = new HTTP2ServerConnectionFactory(httpsConfig);
+        ALPNServerConnectionFactory alpn = new ALPNServerConnectionFactory();
+        alpn.setDefaultProtocol("h2");
+
+        // SSL Connection Factory
+        SslConnectionFactory ssl = new SslConnectionFactory(sslContextFactory, alpn.getProtocol());
+
+        // HTTP/2 Connector
+        ServerConnector http2Connector = new ServerConnector(server, ssl, alpn, h2, new HttpConnectionFactory(httpsConfig));
+        http2Connector.setPort(HostConfig.SERVER_PORT);
+        server.addConnector(http2Connector);
+
+        return server;
+    }
+    
+
     public static void main(String[] args) throws SQLException {
+        Server server = createHttp2Server();
         Javalin app = Javalin.create(config -> {
+            config.server(() -> server);
             config.addStaticFiles("./html", Location.EXTERNAL);
             config.addSinglePageRoot("/", "./html/sqlova.html", Location.EXTERNAL);
         }).start(HostConfig.SERVER_PORT);
 
-        String url = "jdbc:monetdb://localhost:50000/nycopen";
+        String url = HostConfig.DB_HOST;
         Properties props = new Properties();
         props.setProperty("user", "monetdb");
         props.setProperty("password", "monetdb");
         connection = DriverManager.getConnection(url, props);
+
+//        app.post("/", ctx -> {
+//            // some code
+//            String message = ctx.message();
+//            ctx.result();
+//        });
 
         app.ws("/lucene", ws -> {
             ws.onConnect(ctx -> {
