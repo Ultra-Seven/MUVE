@@ -1,7 +1,8 @@
 import Barchart from "./viz/barchart";
-
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = new SpeechRecognition();
+import _ from "underscore";
+
 recognition.lang = 'en-US';
 let name = $('select').val();
 $("#btn-start-recording").click(() => {
@@ -14,8 +15,7 @@ $('select').on('change', function() {
 });
 
 
-const ws = new WebSocket("ws://localhost:80/lucene");
-import _ from "underscore";
+const ws = new WebSocket("wss://localhost:7000/lucene/");
 let render_data;
 
 ws.onmessage = msg => {
@@ -27,20 +27,28 @@ ws.onmessage = msg => {
 };
 
 function draw(query_results) {
-    const groupBys = Object.keys(query_results);
-    const nrFigures = groupBys.length;
     $("#viz").empty();
-    for (let figureCtr = 0; figureCtr < nrFigures; figureCtr++) {
-        const barName = "bar_" + figureCtr
-        const group = groupBys[figureCtr];
-        $( "#viz" ).append( "<div id='" + barName + "' style='width: 85%; height: 280px;display: inline-block;'></div>");
-        const barChart = new Barchart(barName, []);
-        barChart.drawBarChart(query_results[group], group);
-    }
+    _.each(query_results, (row, idx) => {
+        const groupBys = Object.keys(row);
+        const nrFigures = groupBys.length;
+        const rowName = "row_" + idx;
+        $("#viz").append("<div id='" + rowName + "'></div>");
+        for (let figureCtr = 0; figureCtr < nrFigures; figureCtr++) {
+            const barName = "bar_" + idx + "_" + figureCtr;
+            const group = groupBys[figureCtr];
+            const width = row[group]["width"];
+            const data = row[group]["data"];
+            $("#" + rowName).append(
+                "<div id='" + barName +
+                "' style='width: " + width + "px; height: 280px;display: inline-block;'></div>"
+            );
+            const barChart = new Barchart(barName, []);
+            barChart.drawBarChart(data, group);
+        }
+
+    });
     // Remove watermarks
     $('.canvasjs-chart-credit').remove();
-
-    console.log($("#bar_0").CanvasJSChart());
 }
 recognition.onresult = function(event) {
     const sentences = event.results[0][0].transcript;

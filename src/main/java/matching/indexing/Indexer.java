@@ -1,5 +1,6 @@
 package matching.indexing;
 
+import matching.schema.Schema;
 import org.apache.lucene.document.Document;
 
 import java.io.IOException;
@@ -31,22 +32,9 @@ public class Indexer {
      * @param outputDirPath Path to the directory where the index will be stored.
      * @throws IOException
      */
-    public Indexer(String inputFilePath, String outputDirPath) throws IOException {
-        this.input  = Components.getInputReader(inputFilePath);
+    public Indexer(String inputFilePath, String outputDirPath, Schema schema) throws IOException {
+        this.input  = Components.getInputReader(inputFilePath, schema);
         this.output = Components.getOutputWriter(outputDirPath);
-    }
-
-    /**
-     * Initializes the input, creates an output instance in specified open mode.
-     *
-     * @param inputFilePath Path to the file that is going to be indexed.
-     * @param outputDirPath Path to the directory where the index will be stored.
-     * @param mode CREATE, APPEND or CREATE_OR_APPEND.
-     * @throws IOException
-     */
-    public Indexer(String inputFilePath, String outputDirPath, OpenMode mode) throws IOException {
-        this.input  = Components.getInputReader(inputFilePath);
-        this.output = Components.getOutputWriter(outputDirPath, mode);
     }
 
     /**

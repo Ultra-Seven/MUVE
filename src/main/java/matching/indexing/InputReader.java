@@ -1,5 +1,6 @@
 package matching.indexing;
 
+import matching.schema.Schema;
 import org.apache.commons.codec.language.DoubleMetaphone;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -10,13 +11,13 @@ import org.apache.commons.csv.CSVRecord;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.*;
+import java.util.function.Function;
 
 class InputReader implements Iterator<Document[]> {
     /**
      * Apache commons csv parser.
      */
     private final CSVParser input;
-
     /**
      * Lucene's document object.
      * We are reusing single document object for obvious performance reasons.
@@ -31,17 +32,18 @@ class InputReader implements Iterator<Document[]> {
      * An array of fields. It's a de facto schema of the phonetic index.
      */
     private Field[] phonetics;
-
+    /**
+     * An array of functions. Using functions to preprocess the target string.
+     */
+    private Function<String, String>[] preFunctions;
     /**
      * CSV column names extracted from the csv file header.
      */
     private String[] fieldNames;
-
     /**
      * Use iterator to read the contents of the CSV file.
      */
     private Iterator<CSVRecord> iterator;
-
     /**
      * An array of entry set. It contains distinct values for each column.
      */
@@ -57,11 +59,11 @@ class InputReader implements Iterator<Document[]> {
      * @param inputFilePath Path to the CSV file that is going to be indexed.
      * @throws IOException
      */
-    public InputReader(String inputFilePath) throws IOException {
+    public InputReader(String inputFilePath, Schema schema) throws IOException {
         this.input = Components.CSV.getCsvParser(inputFilePath);
         this.iterator = input.iterator();
 
-        this.initFieldNames();
+        this.initFieldNames(schema);
         this.initDocumentFields();
     }
 
@@ -87,6 +89,8 @@ class InputReader implements Iterator<Document[]> {
 
         for (int fieldCtr = 0; fieldCtr < nrFields; fieldCtr++) {
             String value = row.get(fieldCtr);
+            // Normalized the target value
+            value = preFunctions[fieldCtr].apply(value);
             if (!this.contents[fieldCtr].contains(value)) {
                 this.fields[fieldCtr].setStringValue(value);
                 this.contents[fieldCtr].add(value);
@@ -139,7 +143,7 @@ class InputReader implements Iterator<Document[]> {
     /**
      * Initializes filed names from the CSV file header.
      */
-    private void initFieldNames() throws IOException {
+    private void initFieldNames(Schema schema) throws IOException {
         Object[] header = this.input.getHeaderMap().keySet().toArray();
 
         if (header.length == 0) throw new IOException("CSV file doesn't have headers");
@@ -149,9 +153,11 @@ class InputReader implements Iterator<Document[]> {
         this.phonetics = new Field[this.fieldNames.length];
         this.contents = new HashSet[this.fieldNames.length];
         this.documents = new Document[this.fieldNames.length];
+        this.preFunctions = new Function[this.fieldNames.length];
         for (int fieldCtr = 0; fieldCtr < this.fieldNames.length; fieldCtr++) {
             this.contents[fieldCtr] = new HashSet<>();
             this.documents[fieldCtr] = Components.Lucene.getEmptyDocument();
+            this.preFunctions[fieldCtr] = schema.types[fieldCtr].getPreProcessFunction();
         }
     }
 

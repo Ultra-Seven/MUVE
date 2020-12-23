@@ -1,6 +1,7 @@
 package server;
 
 import config.HostConfig;
+import config.PlanConfig;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
@@ -15,10 +16,8 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
-import org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory;
-import org.eclipse.jetty.http2.HTTP2Cipher;
-import org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.json.JSONArray;
@@ -31,56 +30,34 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import static matching.FuzzySearch.searcher;
-
 public class LuceneServlet {
     private static Map<WsContext, String> userUsernameMap = new ConcurrentHashMap<>();
     private static int nextUserNumber = 1;
     private static Connection connection;
 
-    private static Server createHttp2Server() {
+    private static Server createHttpsServer() {
         Server server = new Server();
-
         ServerConnector connector = new ServerConnector(server);
-        connector.setPort(80);
-        server.addConnector(connector);
-
-        // HTTP Configuration
+        connector.setHost("0.0.0.0");
+        connector.setPort(HostConfig.SERVER_PORT-1);
         HttpConfiguration httpConfig = new HttpConfiguration();
-        httpConfig.setSendServerVersion(false);
-        httpConfig.setSecureScheme("https");
-        httpConfig.setSecurePort(HostConfig.SERVER_PORT);
-
-        // SSL Context Factory for HTTPS and HTTP/2
+        httpConfig.addCustomizer(new SecureRequestCustomizer());
         SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setKeyStorePath(LuceneServlet.class.getResource("/keystore.jks").toExternalForm()); // replace with your real keystore
-        sslContextFactory.setKeyStorePassword("password"); // replace with your real password
-        sslContextFactory.setCipherComparator(HTTP2Cipher.COMPARATOR);
-        sslContextFactory.setProvider("Conscrypt");
+        sslContextFactory.setKeyStorePath(LuceneServlet.class.getResource("/keystore.jks").toExternalForm());
+        sslContextFactory.setKeyStorePassword("password");
+        sslContextFactory.setKeyManagerPassword("password");
 
-        // HTTPS Configuration
-        HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
-        httpsConfig.addCustomizer(new SecureRequestCustomizer());
-
-        // HTTP/2 Connection Factory
-        HTTP2ServerConnectionFactory h2 = new HTTP2ServerConnectionFactory(httpsConfig);
-        ALPNServerConnectionFactory alpn = new ALPNServerConnectionFactory();
-        alpn.setDefaultProtocol("h2");
-
-        // SSL Connection Factory
-        SslConnectionFactory ssl = new SslConnectionFactory(sslContextFactory, alpn.getProtocol());
-
-        // HTTP/2 Connector
-        ServerConnector http2Connector = new ServerConnector(server, ssl, alpn, h2, new HttpConnectionFactory(httpsConfig));
-        http2Connector.setPort(HostConfig.SERVER_PORT);
-        server.addConnector(http2Connector);
-
+        ServerConnector sslConnector = new ServerConnector(server,
+                new SslConnectionFactory(sslContextFactory, "http/1.1"),
+                new HttpConnectionFactory(httpConfig));
+        sslConnector.setPort(HostConfig.SERVER_PORT);
+        sslConnector.setHost("0.0.0.0");
+        server.setConnectors(new ServerConnector[] { connector, sslConnector });
         return server;
     }
-    
 
     public static void main(String[] args) throws SQLException {
-        Server server = createHttp2Server();
+        Server server = createHttpsServer();
         Javalin app = Javalin.create(config -> {
             config.server(() -> server);
             config.addStaticFiles("./html", Location.EXTERNAL);
@@ -127,13 +104,18 @@ public class LuceneServlet {
                         .collect(Collectors.joining("\n"));
                 System.out.println(result);
                 JSONObject jsonObject = new JSONObject(result);
-                searchResults(ctx, jsonObject);
+                try {
+                    searchResults(ctx, jsonObject, query_list[0]);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
             });
         });
     }
 
     // Sends a message from one user to all users, along with a list of current usernames
-    private static void searchResults(WsContext session, JSONObject queryTemplate) throws IOException,
+    private static void searchResults(WsContext session, JSONObject queryTemplate, String dataset) throws IOException,
             ParseException, JSQLParserException, SQLException {
         JSONArray params = queryTemplate.getJSONArray("params");
         List<String> listParams = new ArrayList<>();
@@ -154,76 +136,91 @@ public class LuceneServlet {
 
             List<Column> columns = visitor.columns;
 
-            JSONObject resultObjet = new JSONObject();
+            JSONArray resultRows = new JSONArray();
             // Matching all parameters in Lucene. TODO: support more parameters
             for (int paramCtr = 0; paramCtr < listParams.size(); paramCtr++) {
                 String param = listParams.get(paramCtr);
                 Column column = columns.get(paramCtr);
 
-                ScoreDoc[] docs = FuzzySearch.search(param);
+                ScoreDoc[] docs = FuzzySearch.search(param, dataset);
+                IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
+                if (docs.length == 0) {
+                    continue;
+                }
+                List<Map<String, List<ScoreDoc>>> planResults =
+                        SimpleVizPlanner.plan(docs, PlanConfig.NR_ROWS, searcher);
+                for (Map<String, List<ScoreDoc>> resultPerRow: planResults) {
+                    JSONObject resultObjet = new JSONObject();
+                    for (String groupVal: resultPerRow.keySet()) {
+                        JSONArray resultArray = new JSONArray();
+                        List<ScoreDoc> groupDocs = resultPerRow.get(groupVal);
 
-                Map<String, List<ScoreDoc>> planResults = SimpleVizPlanner.plan(docs, 2);
 
-                for (String groupVal: planResults.keySet()) {
-                    JSONArray resultArray = new JSONArray();
-                    List<ScoreDoc> groupDocs = planResults.get(groupVal);
+                        boolean isLiteral = groupVal.equals(searcher.doc(groupDocs.get(0).doc).get("content"));
+                        for (ScoreDoc scoreDoc : groupDocs) {
+                            Document hitDoc = searcher.doc(scoreDoc.doc);
+                            String columnName = hitDoc.get("column");
+                            String content = hitDoc.get("content");
+                            double score = scoreDoc.score;
+                            column.setColumnName(columnName);
 
-
-                    boolean isLiteral = groupVal.equals(searcher.doc(groupDocs.get(0).doc).get("content"));
-                    for (ScoreDoc scoreDoc : groupDocs) {
-                        Document hitDoc = searcher.doc(scoreDoc.doc);
-                        String columnName = hitDoc.get("column");
-                        String content = hitDoc.get("content");
-                        double score = scoreDoc.score;
-                        column.setColumnName(columnName);
-
-                        // Build database query
-                        String template = sqlStatement.toString() + ";";
-                        PreparedStatement preparedStatement = connection.prepareStatement(template);
-                        preparedStatement.setQueryTimeout(1);
-                        String[] newParams = listParams.toArray(new String[0]);
-                        newParams[paramCtr] = content;
-                        for (int index = 0; index < newParams.length; index++) {
-                            preparedStatement.setString(index + 1, newParams[index]);
-                        }
-                        // Result sets
-                        ResultSet rs = preparedStatement.executeQuery();
-                        for (SelectItem item: selectItems) {
-                            resultMap.put(item.toString(), new ArrayList<>());
-                        }
-
-                        int nrRows = 0;
-                        for (int rowCtr = 0; rs.next(); rowCtr++) {
-                            for (int columnCtr = 1; columnCtr <= resultMap.size(); columnCtr++) {
-                                resultMap.get(selectItems.get(columnCtr - 1).toString())
-                                        .add(rs.getString(columnCtr));
+                            // Build database query
+                            String template = sqlStatement.toString() + ";";
+                            PreparedStatement preparedStatement = connection.prepareStatement(template);
+                            preparedStatement.setQueryTimeout(1);
+                            String[] newParams = listParams.toArray(new String[0]);
+                            newParams[paramCtr] = content;
+                            for (int index = 0; index < newParams.length; index++) {
+                                preparedStatement.setString(index + 1, newParams[index]);
                             }
-                            nrRows++;
+                            // Result sets
+                            ResultSet rs = preparedStatement.executeQuery();
+                            boolean selectAgg = true;
+                            for (SelectItem item: selectItems) {
+                                resultMap.put(item.toString(), new ArrayList<>());
+                                if (selectAgg) {
+                                    selectAgg = item.toString().indexOf("(") > 0;
+                                }
+                            }
+
+                            int nrRows = 0;
+                            for (int rowCtr = 0; rs.next(); rowCtr++) {
+                                for (int columnCtr = 1; columnCtr <= resultMap.size(); columnCtr++) {
+                                    resultMap.get(selectItems.get(columnCtr - 1).toString())
+                                            .add(rs.getString(columnCtr));
+                                }
+                                nrRows++;
+                            }
+
+                            boolean isAgg = nrRows == 1 && selectItems.size() == 1 && selectAgg;
+                            JSONObject resultJson = new JSONObject(resultMap);
+
+                            JSONObject result = new JSONObject();
+
+                            String labelName = (isLiteral ? columnName : content).replace("_", " ");
+                            result.put("template", template).put("params", Arrays.toString(newParams))
+                                    .put("score", score).put("results", resultJson).put("type", isAgg ? "agg" : "rows")
+                                    .put("label", labelName);
+                            System.out.println(result.toString());
+                            resultArray.put(result);
+                            rs.close();
+                            preparedStatement.close();
                         }
-                        boolean isAgg = nrRows == 1 && selectItems.size() == 1;
-                        JSONObject resultJson = new JSONObject(resultMap);
-
-                        JSONObject result = new JSONObject();
-
-                        String labelName = (isLiteral ? columnName : content).replace("_", " ");
-                        result.put("template", template).put("params", Arrays.toString(newParams))
-                                .put("score", score).put("results", resultJson).put("type", isAgg ? "agg" : "rows")
-                                .put("label", labelName);
-                        System.out.println(result.toString());
-                        resultArray.put(result);
-                        rs.close();
-                        preparedStatement.close();
+                        String titleName = (isLiteral ? groupVal : groupVal)
+                                .replace("_", " ");
+                        int nrPixels = resultArray.length() * PlanConfig.B + PlanConfig.C;
+                        resultObjet.put(titleName,
+                                new JSONObject().put("data", resultArray).put("width", nrPixels));
                     }
-                    String titleName = isLiteral ? groupVal : "column " + groupVal;
-                    resultObjet.put(titleName, resultArray);
+                    resultRows.put(resultObjet);
                 }
             }
 
-            if (resultObjet.isEmpty()) {
-                session.send("{}");
+            if (resultRows.isEmpty()) {
+                session.send("[]");
             }
             else {
-                session.send(resultObjet.toString());
+                session.send(resultRows.toString());
             }
         }
         else {

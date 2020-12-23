@@ -16,22 +16,28 @@ import org.apache.lucene.store.FSDirectory;
 import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static matching.FuzzyIndex.*;
 
 public class FuzzySearch {
-    public static final int TOPK = 100;
-    public static IndexSearcher searcher;
+    public static final int TOPK = 50;
+    public static final Map<String, IndexSearcher> searchers = new ConcurrentHashMap<>();
 
-    public static ScoreDoc[] search(String query_str) throws IOException, ParseException {
+    public static ScoreDoc[] search(String query_str, String dataset) throws IOException, ParseException {
 //        Analyzer analyzer = new StandardAnalyzer();
 //        Query query = parser.parse(query_str);
         Query query = new FuzzyQuery(new Term("content", query_str), 2);
-        IndexReader reader = null;
-        if (searcher == null) {
-            String searchDir = Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR;
+        IndexReader reader;
+        IndexSearcher searcher;
+        if (!searchers.containsKey(dataset)) {
+            String searchDir = (Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR) + "/" + dataset;
             reader = DirectoryReader.open(FSDirectory.open(Paths.get(searchDir)));
             searcher = new IndexSearcher(reader);
+            searchers.put(dataset, searcher);
+        }
+        else {
+            searcher = searchers.get(dataset);
         }
         ScoreDoc[] hits = searcher.search(query, TOPK).scoreDocs;
         // Use phonetic indexing
@@ -66,15 +72,14 @@ public class FuzzySearch {
 
 
     public static void main(String[] arg) throws IOException, ParseException {
-        String query_str = "brockley";
+        String query_str = "Rika";
+        String dataset = "sample_au";
 //        String query_str = "brooklyn";
         Query query = new FuzzyQuery(new Term("content", query_str), 2);
         IndexReader reader = null;
-        if (searcher == null) {
-            String searchDir = Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR;
-            reader = DirectoryReader.open(FSDirectory.open(Paths.get(searchDir)));
-            searcher = new IndexSearcher(reader);
-        }
+        String searchDir = (Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR) + "/" + dataset;
+        reader = DirectoryReader.open(FSDirectory.open(Paths.get(searchDir)));
+        IndexSearcher searcher = new IndexSearcher(reader);
         ScoreDoc[] hits = searcher.search(query, TOPK).scoreDocs;
         // Use phonetic indexing
         if (Indexer.Phonetic) {

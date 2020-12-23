@@ -1,27 +1,15 @@
 package matching.indexing;
 
-import org.apache.commons.codec.language.bm.NameType;
-import org.apache.commons.codec.language.bm.PhoneticEngine;
-import org.apache.commons.codec.language.bm.RuleType;
+import matching.schema.Schema;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.core.KeywordTokenizer;
-import org.apache.lucene.analysis.core.LetterTokenizer;
-import org.apache.lucene.analysis.core.StopAnalyzer;
-import org.apache.lucene.analysis.phonetic.BeiderMorseFilter;
-import org.apache.lucene.analysis.phonetic.DoubleMetaphoneFilter;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
-import java.io.Reader;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -103,19 +91,6 @@ abstract class Components {
     public static OutputWriter getOutputWriter(String outputDirPath) throws IOException {
         return new OutputWriter(outputDirPath);
     }
-
-    /**
-     * Creates an instance of the OutputWriter class in specified open mode.
-     *
-     * @param outputDirPath Path to directory where the index is going to be created.
-     * @param mode Open mode in which the index will be accesses.
-     * @return OutputWriter instance.
-     * @throws IOException
-     */
-    public static OutputWriter getOutputWriter(String outputDirPath, Indexer.OpenMode mode) throws IOException {
-        return new OutputWriter(outputDirPath, mode);
-    }
-
     /**
      * Creates an InputReader instance.
      *
@@ -123,7 +98,7 @@ abstract class Components {
      * @return InputReader instance.
      * @throws IOException
      */
-    public static InputReader getInputReader(String inputFilePath) throws IOException {
-        return new InputReader(inputFilePath);
+    public static InputReader getInputReader(String inputFilePath, Schema schema) throws IOException {
+        return new InputReader(inputFilePath, schema);
     }
 }
