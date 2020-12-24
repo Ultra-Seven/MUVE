@@ -33,6 +33,10 @@ class InputReader implements Iterator<Document[]> {
      */
     private Field[] phonetics;
     /**
+     * An array of fields. It's a de facto schema of the original content.
+     */
+    private Field[] texts;
+    /**
      * An array of functions. Using functions to preprocess the target string.
      */
     private Function<String, String>[] preFunctions;
@@ -88,12 +92,13 @@ class InputReader implements Iterator<Document[]> {
         CSVRecord row = this.iterator.next();
 
         for (int fieldCtr = 0; fieldCtr < nrFields; fieldCtr++) {
-            String value = row.get(fieldCtr);
+            String text = row.get(fieldCtr);
             // Normalized the target value
-            value = preFunctions[fieldCtr].apply(value);
-            if (!this.contents[fieldCtr].contains(value)) {
+            String value = preFunctions[fieldCtr].apply(Preprocessing.toLowerCase().apply(text));
+            if (!this.contents[fieldCtr].contains(text)) {
                 this.fields[fieldCtr].setStringValue(value);
-                this.contents[fieldCtr].add(value);
+                this.texts[fieldCtr].setStringValue(text);
+                this.contents[fieldCtr].add(text);
                 if (Indexer.Phonetic) {
                     StandardTokenizer stream = new StandardTokenizer();
                     stream.setReader(new StringReader(value));
@@ -108,7 +113,7 @@ class InputReader implements Iterator<Document[]> {
                                 if (!phonetic.toString().equals("")) {
                                     phonetic.append(" ");
                                 }
-                                phonetic.append(encoding);
+                                phonetic.append(encoding.toLowerCase());
                             }
                         }
                     } catch (IOException e) {
@@ -151,6 +156,7 @@ class InputReader implements Iterator<Document[]> {
         this.fieldNames = Arrays.copyOf(header, header.length, String[].class);
         this.fields = new Field[this.fieldNames.length];
         this.phonetics = new Field[this.fieldNames.length];
+        this.texts = new Field[this.fieldNames.length];
         this.contents = new HashSet[this.fieldNames.length];
         this.documents = new Document[this.fieldNames.length];
         this.preFunctions = new Function[this.fieldNames.length];
@@ -167,12 +173,14 @@ class InputReader implements Iterator<Document[]> {
     private void initDocumentFields() {
         for (int fieldCtr = 0; fieldCtr < this.fieldNames.length; fieldCtr++) {
             this.fields[fieldCtr] = new TextField("content", "", Field.Store.YES);
+            this.texts[fieldCtr] = new TextField("text", "", Field.Store.YES);
             if (Indexer.Phonetic) {
                 this.phonetics[fieldCtr] = new TextField("phonetic", "", Field.Store.YES);
                 this.documents[fieldCtr].add(this.phonetics[fieldCtr]);
             }
             this.documents[fieldCtr].add(new StringField("column", fieldNames[fieldCtr], Field.Store.YES));
             this.documents[fieldCtr].add(this.fields[fieldCtr]);
+            this.documents[fieldCtr].add(this.texts[fieldCtr]);
         }
     }
 }

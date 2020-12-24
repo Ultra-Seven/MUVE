@@ -25,7 +25,6 @@ public class SimpleVizPlanner {
     public static List<Map<String, List<ScoreDoc>>> plan(ScoreDoc[] hitDocs,
                                                    int nrRows,
                                                    IndexSearcher searcher) throws IOException {
-
         int nrDocs = hitDocs.length;
         int nrAvailable = 2;
         int[][] docToCtx = new int[nrDocs][nrAvailable];
@@ -36,7 +35,7 @@ public class SimpleVizPlanner {
             ScoreDoc hitScoreDoc = hitDocs[docCtr];
             Document hitDoc = searcher.doc(hitScoreDoc.doc);
             String column = hitDoc.get("column");
-            String content = hitDoc.get("content");
+            String content = hitDoc.get("text");
             int literalIndex = literals.indexOf(content);
             int columnIndex = columns.indexOf(column);
             if (literalIndex < 0) {
@@ -207,7 +206,7 @@ public class SimpleVizPlanner {
 
         // Retrieve solution
         if (ret == 0) {
-            printResults(lp, literals, columns, docToCtx, nrRows, nrDocs);
+//            printResults(lp, literals, columns, docToCtx, nrRows, nrDocs);
 
             String name;
             double indicator;
@@ -257,7 +256,7 @@ public class SimpleVizPlanner {
                     for (ScoreDoc doc: resultsPerRow.get(groupVal)) {
                         Document hitDoc = searcher.doc(doc.doc);
                         String column_str = hitDoc.get("column");
-                        String content_str = hitDoc.get("content");
+                        String content_str = hitDoc.get("text");
                         System.out.println("Column: " + column_str + "\tParam: " + content_str + "\tScore:" + doc.score);
                     }
                 }

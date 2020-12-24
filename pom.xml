@@ -64,6 +64,12 @@
             <artifactId>lucene-analyzers-phonetic</artifactId>
             <version>8.7.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.lucene/lucene-queries -->
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-queries</artifactId>
+            <version>8.7.0</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/commons-codec/commons-codec -->
         <dependency>
             <groupId>commons-codec</groupId>

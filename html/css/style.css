@@ -201,6 +201,7 @@ h1, h2 {
 
 #viz {
   margin-top: 40px;
+  width: 900px;
 }
 
 aside {
@@ -208,4 +209,13 @@ aside {
   left: 740px;
   font-size: smaller;
   width: 220px;
+}
+
+#viz_title {
+  font-family: Calibri, Optima, Candara, Verdana, Geneva, sans-serif;
+  font-size: 25px;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+  margin-top: 40px;
 }

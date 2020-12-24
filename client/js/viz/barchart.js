@@ -18,23 +18,8 @@ class Barchart {
         render_data = _.sortBy(render_data, point => {
             return point["label"];
         });
-
         console.log(render_data);
-        const key_arr = _.filter(key.split(/[()]+/), element => element !== "");
-        const aggTitle = key_arr[0];
-        const target = key_arr.length === 1 ?
-            key_arr[0] : key_arr[1].replaceAll("_"," ");
-        let aggPrefix;
-        if (aggTitle.startsWith("max")) {
-            aggPrefix = "Maximum of ";
-        }
-        else if (aggTitle.startsWith("max")) {
-            aggPrefix = "Minimum of ";
-        }
-        else {
-            aggPrefix = "Count of ";
-        }
-        const title = aggPrefix + target + " for " + groupby;
+        const title = groupby;
         // this.chart = new CanvasJS.Chart(this.container, {
         //     animationEnabled: true,
         //     title: {

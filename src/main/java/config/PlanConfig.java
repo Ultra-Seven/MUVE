@@ -12,7 +12,7 @@ public class PlanConfig {
      * The total width of interface area where plots are
      * aligned.
      */
-    public static final int R = 800;
+    public static final int R = 900;
     /**
      * The width of one data point that represents a query.
      */
@@ -25,5 +25,9 @@ public class PlanConfig {
      * The number of rows in given area.
      */
     public static final int NR_ROWS = 2;
+    /**
+     * Select first few queries that have the highest probability.
+     */
+    public static final int TOPK = 100;
 
 }

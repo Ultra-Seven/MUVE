@@ -70,11 +70,12 @@ public class LuceneServlet {
         props.setProperty("password", "monetdb");
         connection = DriverManager.getConnection(url, props);
 
-//        app.post("/", ctx -> {
-//            // some code
-//            String message = ctx.message();
-//            ctx.result();
-//        });
+        app.post("/", ctx -> {
+            // some code
+            String message = ctx.body();
+            System.out.println(message);
+            ctx.result("[]");
+        });
 
         app.ws("/lucene", ws -> {
             ws.onConnect(ctx -> {
@@ -108,7 +109,8 @@ public class LuceneServlet {
                     searchResults(ctx, jsonObject, query_list[0]);
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    System.out.println("Error");
+                    ctx.send("[]");
                 }
             });
         });
@@ -151,16 +153,30 @@ public class LuceneServlet {
                         SimpleVizPlanner.plan(docs, PlanConfig.NR_ROWS, searcher);
                 for (Map<String, List<ScoreDoc>> resultPerRow: planResults) {
                     JSONObject resultObjet = new JSONObject();
+                    // Counting widths
+                    int size = resultPerRow.size();
+                    int[] pixels = new int[size];
+                    int groupCtr = 0;
+                    for (String groupVal: resultPerRow.keySet()) {
+                        pixels[groupCtr] = resultPerRow.get(groupVal).size() * PlanConfig.B + PlanConfig.C;
+                        groupCtr++;
+                    }
+                    int sumPixels = Arrays.stream(pixels).sum();
+                    for (int group = 0; group < size - 1; group++) {
+                        pixels[group] = (int) Math.round((pixels[group] + 0.0) / sumPixels * PlanConfig.R);
+                    }
+                    pixels[size - 1] = 0;
+                    pixels[size - 1] = PlanConfig.R - Arrays.stream(pixels).sum();
+                    groupCtr = 0;
                     for (String groupVal: resultPerRow.keySet()) {
                         JSONArray resultArray = new JSONArray();
                         List<ScoreDoc> groupDocs = resultPerRow.get(groupVal);
 
-
-                        boolean isLiteral = groupVal.equals(searcher.doc(groupDocs.get(0).doc).get("content"));
+                        boolean isLiteral = groupVal.equals(searcher.doc(groupDocs.get(0).doc).get("text"));
                         for (ScoreDoc scoreDoc : groupDocs) {
                             Document hitDoc = searcher.doc(scoreDoc.doc);
                             String columnName = hitDoc.get("column");
-                            String content = hitDoc.get("content");
+                            String content = hitDoc.get("text");
                             double score = scoreDoc.score;
                             column.setColumnName(columnName);
 
@@ -208,9 +224,10 @@ public class LuceneServlet {
                         }
                         String titleName = (isLiteral ? groupVal : groupVal)
                                 .replace("_", " ");
-                        int nrPixels = resultArray.length() * PlanConfig.B + PlanConfig.C;
+                        int nrPixels = pixels[groupCtr];
                         resultObjet.put(titleName,
                                 new JSONObject().put("data", resultArray).put("width", nrPixels));
+                        groupCtr++;
                     }
                     resultRows.put(resultObjet);
                 }
@@ -224,7 +241,7 @@ public class LuceneServlet {
             }
         }
         else {
-            session.send("{}");
+            session.send("[]");
         }
     }
 
