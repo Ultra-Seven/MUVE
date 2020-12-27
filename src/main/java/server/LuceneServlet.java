@@ -137,7 +137,7 @@ public class LuceneServlet {
             List<SelectItem> selectItems = plainSelect.getSelectItems();
 
             List<Column> columns = visitor.columns;
-
+            JSONObject resultObj = new JSONObject();
             JSONArray resultRows = new JSONArray();
             // Matching all parameters in Lucene. TODO: support more parameters
             for (int paramCtr = 0; paramCtr < listParams.size(); paramCtr++) {
@@ -216,7 +216,7 @@ public class LuceneServlet {
                             String labelName = (isLiteral ? columnName : content).replace("_", " ");
                             result.put("template", template).put("params", Arrays.toString(newParams))
                                     .put("score", score).put("results", resultJson).put("type", isAgg ? "agg" : "rows")
-                                    .put("label", labelName);
+                                    .put("label", labelName).put("context", isLiteral ? "value" : "column");
                             System.out.println(result.toString());
                             resultArray.put(result);
                             rs.close();
@@ -232,16 +232,16 @@ public class LuceneServlet {
                     resultRows.put(resultObjet);
                 }
             }
-
-            if (resultRows.isEmpty()) {
-                session.send("[]");
-            }
-            else {
-                session.send(resultRows.toString());
-            }
+            resultObj.put("data", resultRows);
+            resultObj.put("debug", new JSONArray().put(queryTemplate));
+            session.send(resultObj.toString());
         }
         else {
-            session.send("[]");
+            session.send(
+                    new JSONObject().put("data", new JSONArray())
+                    .put("debug", new JSONArray().put(queryTemplate))
+                    .toString()
+            );
         }
     }
 

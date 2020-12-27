@@ -8,6 +8,7 @@ class Barchart {
         this.data = data;
         const key = Object.keys(data[0]["results"])[0];
         const type = data[0]["type"];
+        const context = data[0]["context"];
         let render_data = _.map(this.data, obj => {
             const element = obj["results"][key][0];
             return {
@@ -19,7 +20,7 @@ class Barchart {
             return point["label"];
         });
         console.log(render_data);
-        const title = groupby;
+        const title = context + " " + groupby;
         // this.chart = new CanvasJS.Chart(this.container, {
         //     animationEnabled: true,
         //     title: {
@@ -42,17 +43,11 @@ class Barchart {
                 type: "column",
                 dataPoints: render_data
             }],
-            options: {
-                scales: {
-                    xAxes: [{
-                        ticks: {
-                            autoSkip: false,
-                            maxRotation: 90,
-                            minRotation: 90
-                        }
-                    }]
-                }
-            }
+            axisX: {
+                labelMaxWidth: 100,
+                labelAngle: -90,
+                interval: 1
+            },
         });
     }
 }

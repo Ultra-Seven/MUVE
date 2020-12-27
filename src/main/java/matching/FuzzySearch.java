@@ -3,6 +3,8 @@ package matching;
 
 import config.PlanConfig;
 import matching.indexing.Indexer;
+import matching.indexing.ProbabilitySimilarity;
+import matching.score.ProbabilityScore;
 import org.apache.commons.codec.language.DoubleMetaphone;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -11,7 +13,9 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
+import org.apache.lucene.search.comparators.FloatComparator;
 import org.apache.lucene.search.similarities.BM25Similarity;
+import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.search.spans.SpanMultiTermQueryWrapper;
 import org.apache.lucene.search.spans.SpanNearQuery;
 import org.apache.lucene.search.spans.SpanQuery;
@@ -21,6 +25,7 @@ import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static matching.FuzzyIndex.*;
 
@@ -95,7 +100,7 @@ public class FuzzySearch {
                 clauses[tokenCtr] = new SpanMultiTermQueryWrapper<>(fuzzyQuery);
 
             }
-            return new SpanNearQuery(clauses, 1, true);
+            return new SpanNearQuery(clauses, 3, true);
         }
     }
 
@@ -125,7 +130,7 @@ public class FuzzySearch {
     }
 
     public static void main(String[] arg) throws IOException, ParseException {
-        String query_str = "5th AVENUE";
+        String query_str = "5th Avenue";
         String dataset = "sample_311";
         query_str = preprocessing(query_str);
 //        String query_str = "brooklyn";
@@ -134,9 +139,7 @@ public class FuzzySearch {
         String searchDir = (Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR) + "/" + dataset;
         reader = DirectoryReader.open(FSDirectory.open(Paths.get(searchDir)));
         IndexSearcher searcher = new IndexSearcher(reader);
-//        searcher.setSimilarity(new BM25Similarity(0, 0.75F));
         ScoreDoc[] hits = searcher.search(query, PlanConfig.TOPK).scoreDocs;
-        Explanation explanation = searcher.explain(query, hits[0].doc);
 
         // Use phonetic indexing
         if (Indexer.Phonetic) {
@@ -159,9 +162,26 @@ public class FuzzySearch {
             ).toArray(ScoreDoc[]::new);
         }
         // Iterate through the results:
-        for (int i = 0; i < hits.length; i++) {
-            ScoreDoc scoreDoc = hits[i];
-            Document hitDoc = searcher.doc(hits[i].doc);
+        String finalQuery_str = query_str;
+        List<ScoreDoc> scoreDocs = Arrays.stream(hits).sorted((doc1, doc2) -> {
+            try {
+                Document hitDoc1 = searcher.doc(doc1.doc);
+                String text1 = hitDoc1.get("text");
+                Document hitDoc2 = searcher.doc(doc2.doc);
+                String text2 = hitDoc2.get("text");
+                float score1 = (float) ProbabilityScore.score(finalQuery_str, text1);
+                float score2 = (float) ProbabilityScore.score(finalQuery_str, text2);
+                doc1.score = score1;
+                doc2.score = score2;
+                if (score1 < score2) return 1;
+                if (score1 > score2) return -1;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return 0;
+        }).collect(Collectors.toList()).subList(0, PlanConfig.TOPK);
+        for (ScoreDoc scoreDoc : scoreDocs) {
+            Document hitDoc = searcher.doc(scoreDoc.doc);
             String column = hitDoc.get("column");
             String content = hitDoc.get("content");
             String phonetic = hitDoc.get("phonetic");

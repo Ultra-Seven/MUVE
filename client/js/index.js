@@ -2,6 +2,7 @@ import Barchart from "./viz/barchart";
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = new SpeechRecognition();
 import _ from "underscore";
+import Sample_311 from "./dataset/sample_311";
 
 recognition.lang = 'en-US';
 let name = $('select').val();
@@ -14,6 +15,10 @@ $('select').on('change', function() {
     console.log(name)
 });
 
+const dataset = new Sample_311();
+_.each(dataset.columns, column => {
+    $("#columns").append("<li>" + column + "</li>")
+})
 
 let render_data;
 const AJAX = false;
@@ -22,12 +27,13 @@ if (!AJAX) {
     ws = new WebSocket("wss://localhost:7000/lucene/");
     ws.onmessage = msg => {
         console.log("Receiving data");
-        const data = msg.data;
-        render_data = JSON.parse(data)
+        const data = JSON.parse(msg.data);
         // $("#answer").html(data);
+        render_data = data["data"];
+        const template = data["debug"]
         if (render_data.length === 0) {
             $("#viz").empty();
-            $("#viz_title").html("No Results");
+            $("#viz_title").html("No Results for " + JSON.stringify(template));
         }
         else {
             draw(render_data)
@@ -79,7 +85,7 @@ function draw(query_results) {
 }
 recognition.onresult = function(event) {
     const sentences = event.results[0][0].transcript;
-    $("#spoken-text").html(sentences);
+    $("#spoken-text").val(sentences);
     console.log(sentences);
     if (name) {
         // ws.send(name + ";" + sentences);

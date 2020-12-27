@@ -1,76 +1,28 @@
 @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz:400,700);
 
 body {
-  font-family: "Helvetica Neue";
   margin: 40px auto;
-  width: 960px;
 }
 
 #instructions {
   display: flow;
 }
 
+#datasets {
+  width: 100%;
+}
 
-#constraints {
-  width: 960px;
-  height: 200px;
+#information {
+  height: 100%;
+  width: 20%;
 }
 
 #recording {
-  margin: 0 auto;
-  margin-top: 10px;
   text-align: center;
-}
-.container {
-  position: relative;
-  border: 1px solid #f2efe2;
-  width: 40vw;
-  max-width: 60vw;
-  margin: 0 auto;
-  border-radius: 0.1rem;
-  background: #f2efe2;
-  padding: 0.2rem 1rem;
-  color: #1e2440;
-  overflow: scroll;
-  margin-top: 10px;
-}
-.text-box {
-  max-height: 70vh;
-  overflow: scroll;
-}
-.text-box:focus {
-  outline: none;
-}
-.text-box p {
-  border-bottom: 1px dotted black;
-  margin: 0px !important;
-}
-.fa {
-  color: white;
-  background: #1e2440;
-  border-radius: 50%;
-  cursor: pointer;
-  margin-top: 1rem;
-  float: right;
-  width: 2rem;
-  height: 2rem;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-}
-@media (max-width: 768px) {
-  .container {
-    width: 85vw;
-    max-width: 85vw;
-  }
-  .text-box {
-    max-height: 55vh;
-  }
+  width: 70%;
+  height: 100%;
 }
 
-#body {
-  position: relative;
-}
 
 footer {
   padding: 2em 0 1em 0;
@@ -119,89 +71,14 @@ h1, h2 {
   color: #ccc;
 }
 
-.background.bar {
-  fill: #ccc;
+#overview {
+  width: 100%;
 }
 
-.foreground.bar {
-  fill: steelblue;
-}
-
-.axis path, .axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: crispEdges;
-}
-
-.axis text {
-  font: 10px sans-serif;
-}
-
-.brush rect.extent {
-  fill: steelblue;
-  fill-opacity: .125;
-}
-
-.brush .resize path {
-  fill: #eee;
-  stroke: #666;
-}
-
-#hour-chart {
-  width: 260px;
-}
-
-#delay-chart {
-  width: 230px;
-}
-
-#distance-chart {
-  width: 420px;
-}
-
-#date-chart {
-  width: 920px;
-}
-
-#flight-list {
-  min-height: 1024px;
-}
-
-#flight-list .date,
-#flight-list .day {
-  margin-bottom: .4em;
-}
-
-#flight-list .flight {
-  line-height: 1.5em;
-  background: #eee;
-  width: 640px;
-  margin-bottom: 1px;
-}
-
-#flight-list .time {
-  color: #999;
-}
-
-#flight-list .flight div {
-  display: inline-block;
-  width: 100px;
-}
-
-#flight-list div.distance,
-#flight-list div.delay {
-  width: 160px;
-  padding-right: 10px;
-  text-align: right;
-}
-
-#flight-list .early {
-  color: green;
-}
 
 #viz {
   margin-top: 40px;
-  width: 900px;
+  width: 100%;
 }
 
 aside {

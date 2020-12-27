@@ -157,6 +157,11 @@
             <artifactId>fuzzy-matcher</artifactId>
             <version>1.0.4</version>
         </dependency>
+        <dependency>
+            <groupId>info.debatty</groupId>
+            <artifactId>java-string-similarity</artifactId>
+            <version>RELEASE</version>
+        </dependency>
 
     </dependencies>
 
