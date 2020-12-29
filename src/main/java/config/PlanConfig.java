@@ -29,5 +29,13 @@ public class PlanConfig {
      * Select first few queries that have the highest probability.
      */
     public static final int TOPK = 100;
-
+    /**
+     * The Number of ranks that each documents will be assigned.
+     */
+    public static final int NR_RANKS = 7;
+    /**
+     * The size of ranks is increasing exponentially. The base for
+     * according number of ranks.
+     */
+    public static final double BASE = 1.16;
 }

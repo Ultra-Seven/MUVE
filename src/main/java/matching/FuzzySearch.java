@@ -48,8 +48,8 @@ public class FuzzySearch {
         }
         ScoreDoc[] hits = searcher.search(query, PlanConfig.TOPK).scoreDocs;
         // Use phonetic indexing
+        Map<Integer, ScoreDoc> idToDocs = new HashMap<>(hits.length);
         if (Indexer.Phonetic) {
-            Map<Integer, ScoreDoc> idToDocs = new HashMap<>(hits.length);
             Arrays.stream(hits).forEach(doc -> idToDocs.put(doc.doc, doc));
             Query phoneticQuery = buildPhoneticQuery(normalized);
             ScoreDoc[] phoneticHits = searcher.search(phoneticQuery, PlanConfig.TOPK).scoreDocs;
@@ -62,10 +62,35 @@ public class FuzzySearch {
                     idToDocs.put(docID, phoneticDoc);
                 }
             }
-            hits = idToDocs.values().stream().sorted(
-                    Comparator.comparingDouble(doc -> -1 * doc.score)
-            ).toArray(ScoreDoc[]::new);
         }
+        // Reorder the documents by similarity
+        String finalPhonetic = phoneticEncoder(query_str);
+        hits = idToDocs.values().stream().sorted((doc1, doc2) -> {
+            try {
+                Document hitDoc1 = searcher.doc(doc1.doc);
+                String text1 = hitDoc1.get("text");
+                String phonetic1 = hitDoc1.get("phonetic");
+                Document hitDoc2 = searcher.doc(doc2.doc);
+                String text2 = hitDoc2.get("text");
+                String phonetic2 = hitDoc2.get("phonetic");
+                float score1 = (float) ProbabilityScore.score(normalized, text1);
+                float score2 = (float) ProbabilityScore.score(normalized, text2);
+
+                float phoneticScore1 = (float) ProbabilityScore.score(finalPhonetic, phonetic1);
+                float phoneticScore2 = (float) ProbabilityScore.score(finalPhonetic, phonetic2);
+
+                doc1.score = score1;
+                doc2.score = score2;
+
+                doc1.score = 0.5f * score1 + 0.5f * phoneticScore1;
+                doc2.score = 0.5f * score2 + 0.5f * phoneticScore2;
+                if (score1 < score2) return 1;
+                if (score1 > score2) return -1;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return 0;
+        }).collect(Collectors.toList()).subList(0, PlanConfig.TOPK).toArray(new ScoreDoc[0]);
         return hits;
     }
 
@@ -104,6 +129,23 @@ public class FuzzySearch {
         }
     }
 
+    public static String phoneticEncoder(String query_str) {
+        DoubleMetaphone encoder = new DoubleMetaphone();
+        String[] tokens = query_str.split(" ");
+        List<String> newTokens = new ArrayList<>(tokens.length);
+        for (String token : tokens) {
+            if (!token.equals("")) {
+                String encoding = encoder.encode(token);
+                if (!encoding.equals("")) {
+                    newTokens.add(encoding.toLowerCase());
+                } else {
+                    newTokens.add(token);
+                }
+            }
+        }
+        return String.join(" ",  newTokens);
+    }
+
     public static Query buildPhoneticQuery(String query_str) {
         String[] tokens = query_str.split(" ");
         DoubleMetaphone encoder = new DoubleMetaphone();
@@ -119,6 +161,12 @@ public class FuzzySearch {
                     fuzzyQueries.add(fuzzyQuery);
                     clauses.add(new SpanMultiTermQueryWrapper<>(fuzzyQuery));
                 }
+                else {
+                    FuzzyQuery fuzzyQuery = new FuzzyQuery(
+                            new Term("phonetic", token), 2);
+                    fuzzyQueries.add(fuzzyQuery);
+                    clauses.add(new SpanMultiTermQueryWrapper<>(fuzzyQuery));
+                }
             }
         }
         if (fuzzyQueries.size() == 1) {
@@ -130,7 +178,7 @@ public class FuzzySearch {
     }
 
     public static void main(String[] arg) throws IOException, ParseException {
-        String query_str = "5th Avenue";
+        String query_str = "Brockley";
         String dataset = "sample_311";
         query_str = preprocessing(query_str);
 //        String query_str = "brooklyn";
@@ -157,22 +205,29 @@ public class FuzzySearch {
                     idToDocs.put(docID, phoneticDoc);
                 }
             }
-            hits = idToDocs.values().stream().sorted(
-                    Comparator.comparingDouble(doc -> -1 * doc.score)
-            ).toArray(ScoreDoc[]::new);
         }
         // Iterate through the results:
         String finalQuery_str = query_str;
+        String finalPhonetic = phoneticEncoder(query_str);
         List<ScoreDoc> scoreDocs = Arrays.stream(hits).sorted((doc1, doc2) -> {
             try {
                 Document hitDoc1 = searcher.doc(doc1.doc);
                 String text1 = hitDoc1.get("text");
+                String phonetic1 = hitDoc1.get("phonetic");
                 Document hitDoc2 = searcher.doc(doc2.doc);
                 String text2 = hitDoc2.get("text");
+                String phonetic2 = hitDoc2.get("phonetic");
                 float score1 = (float) ProbabilityScore.score(finalQuery_str, text1);
                 float score2 = (float) ProbabilityScore.score(finalQuery_str, text2);
+
+                float phoneticScore1 = (float) ProbabilityScore.score(finalPhonetic, phonetic1);
+                float phoneticScore2 = (float) ProbabilityScore.score(finalPhonetic, phonetic2);
+
                 doc1.score = score1;
                 doc2.score = score2;
+
+                doc1.score = 0.5f * score1 + 0.5f * phoneticScore1;
+                doc2.score = 0.5f * score2 + 0.5f * phoneticScore2;
                 if (score1 < score2) return 1;
                 if (score1 > score2) return -1;
             } catch (IOException e) {

@@ -1,3 +1,5 @@
+import _ from "underscore";
+
 class Sample_311 {
     constructor() {
         this.columns = [
@@ -12,6 +14,21 @@ class Sample_311 {
             "Bridge Highway Name", "Bridge Highway Direction", "Road Ramp", "Bridge Highway Segment",
             "Latitude", "Longitude", "Location"
         ];
+        this.samples = [
+            "How many cases in Brooklyn?"
+        ];
+    }
+
+    setup() {
+        $("#columns").empty();
+        $("#queries").empty();
+        _.each(this.columns, column => {
+            $("#columns").append("<li>" + column + "</li>")
+        })
+
+        _.each(this.samples, sample => {
+            $("#queries").append("<li>" + sample + "</li>")
+        })
     }
 }
 export default Sample_311;

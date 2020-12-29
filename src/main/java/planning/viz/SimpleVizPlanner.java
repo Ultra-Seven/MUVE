@@ -23,7 +23,7 @@ import java.util.*;
  */
 public class SimpleVizPlanner {
     public static List<Map<String, List<ScoreDoc>>> plan(ScoreDoc[] hitDocs,
-                                                   int nrRows,
+                                                   int nrRows, int R,
                                                    IndexSearcher searcher) throws IOException {
         int nrDocs = hitDocs.length;
         int nrAvailable = 2;
@@ -152,7 +152,7 @@ public class SimpleVizPlanner {
         for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
             int constraintID = rowCtr + startIndex;
             GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
-            GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0., PlanConfig.R);
+            GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0., R);
 
             // Constant pixels
             for (int contextCtr = 0; contextCtr < nrContexts; contextCtr++) {
@@ -337,6 +337,6 @@ public class SimpleVizPlanner {
     public static void main(String[] args) throws IOException, ParseException {
         String dataset = "sample_311";
         ScoreDoc[] docs = FuzzySearch.search("brockley", dataset);
-        plan(docs, 2, FuzzySearch.searchers.get(dataset));
+        plan(docs, 2, PlanConfig.R, FuzzySearch.searchers.get(dataset));
     }
 }

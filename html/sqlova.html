@@ -29,22 +29,28 @@
             <div class="header">
                 Data Overview
             </div>
-            <ul class="list" id="columns">
-            </ul>
+            <div class="scrolling content" id="list_content">
+                <ul class="ui list" id="columns">
+                </ul>
+            </div>
         </div>
 
         <div class="ui message" id="sample">
             <div class="header">
                 Sample Queries
             </div>
-            <ul class="list" id="queries">
-            </ul>
+            <div class="scrolling content" id="query_content">
+                <ul class="list" id="queries">
+                </ul>
+            </div>
         </div>
     </div>
     <div id="recording" class="ui fluid centered floated column">
         <div class="ui fluid action input">
             <input type="text" id="spoken-text" placeholder="Natural language query...">
             <div class="ui primary button" id="btn-start-recording">Click to Speak</div>
+            <div class="ui positive button" id="btn-submit">Click to Submit</div>
+            <div class="ui negative button" id="btn-dev">Show Messages</div>
         </div>
         <div id="voz">
         </div>
@@ -54,6 +60,22 @@
             </div>
             <div id="bar2" style="width: 45%; height: 300px;display: inline-block;">
             </div>
+        </div>
+        <div class="ui buttons" id="legend">
+        </div>
+    </div>
+
+    <div class="ui longer modal scrolling">
+        <div class="header">
+            Response Message
+        </div>
+        <div class="scrolling image content">
+            <div class="description" id="detailed_response" style="width: 100%;">
+
+            </div>
+        </div>
+        <div class="actions">
+            <div class="ui primary approve button" id="close_ok">OK</div>
         </div>
     </div>
 </div>

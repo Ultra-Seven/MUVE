@@ -96,6 +96,8 @@ public class LuceneServlet {
                 commands.add("q=" + query_list[1]);
                 commands.add(HostConfig.MODEL_HOST);
 
+                int width = (int) Math.floor(Double.parseDouble(query_list[2]));
+
                 ProcessBuilder processBuilder = new ProcessBuilder(commands);
                 Process process = processBuilder.start();
 
@@ -106,18 +108,22 @@ public class LuceneServlet {
                 System.out.println(result);
                 JSONObject jsonObject = new JSONObject(result);
                 try {
-                    searchResults(ctx, jsonObject, query_list[0]);
+                    searchResults(ctx, jsonObject, query_list[0], width);
                 }
                 catch (Exception e) {
+                    e.printStackTrace();
                     System.out.println("Error");
-                    ctx.send("[]");
+                    ctx.send("{\"data\": [], debug: {}}");
                 }
             });
         });
     }
 
     // Sends a message from one user to all users, along with a list of current usernames
-    private static void searchResults(WsContext session, JSONObject queryTemplate, String dataset) throws IOException,
+    private static void searchResults(WsContext session,
+                                      JSONObject queryTemplate,
+                                      String dataset,
+                                      int width) throws IOException,
             ParseException, JSQLParserException, SQLException {
         JSONArray params = queryTemplate.getJSONArray("params");
         List<String> listParams = new ArrayList<>();
@@ -140,6 +146,7 @@ public class LuceneServlet {
             JSONObject resultObj = new JSONObject();
             JSONArray resultRows = new JSONArray();
             // Matching all parameters in Lucene. TODO: support more parameters
+            int R = Math.min(PlanConfig.R, width);
             for (int paramCtr = 0; paramCtr < listParams.size(); paramCtr++) {
                 String param = listParams.get(paramCtr);
                 Column column = columns.get(paramCtr);
@@ -150,7 +157,22 @@ public class LuceneServlet {
                     continue;
                 }
                 List<Map<String, List<ScoreDoc>>> planResults =
-                        SimpleVizPlanner.plan(docs, PlanConfig.NR_ROWS, searcher);
+                        SimpleVizPlanner.plan(docs, PlanConfig.NR_ROWS, R, searcher);
+                Set<Float> scoreSet = new LinkedHashSet<>();
+                planResults.forEach(row ->
+                        row.values().forEach(
+                                scoreDocs -> scoreDocs.forEach(
+                                        doc -> scoreSet.add(doc.score)
+                                )
+                        )
+                );
+                List<Float> scoreList = scoreSet.stream().sorted().collect(Collectors.toList());
+                int nrScores = scoreList.size();
+                Map<Float, Integer> ranks = new HashMap<>(nrScores);
+                for (int scoreCtr = 0; scoreCtr < nrScores; scoreCtr++) {
+                    float scoreElement = scoreList.get(nrScores - scoreCtr - 1);
+                    ranks.put(scoreElement, scoreCtr);
+                }
                 for (Map<String, List<ScoreDoc>> resultPerRow: planResults) {
                     JSONObject resultObjet = new JSONObject();
                     // Counting widths
@@ -163,10 +185,10 @@ public class LuceneServlet {
                     }
                     int sumPixels = Arrays.stream(pixels).sum();
                     for (int group = 0; group < size - 1; group++) {
-                        pixels[group] = (int) Math.round((pixels[group] + 0.0) / sumPixels * PlanConfig.R);
+                        pixels[group] = (int) Math.round((pixels[group] + 0.0) / sumPixels * 100);
                     }
                     pixels[size - 1] = 0;
-                    pixels[size - 1] = PlanConfig.R - Arrays.stream(pixels).sum();
+                    pixels[size - 1] = 100 - Arrays.stream(pixels).sum();
                     groupCtr = 0;
                     for (String groupVal: resultPerRow.keySet()) {
                         JSONArray resultArray = new JSONArray();
@@ -177,11 +199,20 @@ public class LuceneServlet {
                             Document hitDoc = searcher.doc(scoreDoc.doc);
                             String columnName = hitDoc.get("column");
                             String content = hitDoc.get("text");
-                            double score = scoreDoc.score;
-                            column.setColumnName(columnName);
+                            float score = scoreDoc.score;
+                            column.setColumnName("\"" + columnName + "\"");
+
+                            boolean selectAgg = true;
+                            for (SelectItem item: selectItems) {
+                                resultMap.put(item.toString(), new ArrayList<>());
+                                if (selectAgg) {
+                                    selectAgg = item.toString().indexOf("(") > 0;
+                                }
+                            }
 
                             // Build database query
                             String template = sqlStatement.toString() + ";";
+                            System.out.println(template);
                             PreparedStatement preparedStatement = connection.prepareStatement(template);
                             preparedStatement.setQueryTimeout(1);
                             String[] newParams = listParams.toArray(new String[0]);
@@ -191,13 +222,6 @@ public class LuceneServlet {
                             }
                             // Result sets
                             ResultSet rs = preparedStatement.executeQuery();
-                            boolean selectAgg = true;
-                            for (SelectItem item: selectItems) {
-                                resultMap.put(item.toString(), new ArrayList<>());
-                                if (selectAgg) {
-                                    selectAgg = item.toString().indexOf("(") > 0;
-                                }
-                            }
 
                             int nrRows = 0;
                             for (int rowCtr = 0; rs.next(); rowCtr++) {
@@ -214,8 +238,10 @@ public class LuceneServlet {
                             JSONObject result = new JSONObject();
 
                             String labelName = (isLiteral ? columnName : content).replace("_", " ");
+                            int rank = ranks.get(score);
                             result.put("template", template).put("params", Arrays.toString(newParams))
-                                    .put("score", score).put("results", resultJson).put("type", isAgg ? "agg" : "rows")
+                                    .put("rank", rank).put("score", score)
+                                    .put("results", resultJson).put("type", isAgg ? "agg" : "rows")
                                     .put("label", labelName).put("context", isLiteral ? "value" : "column");
                             System.out.println(result.toString());
                             resultArray.put(result);

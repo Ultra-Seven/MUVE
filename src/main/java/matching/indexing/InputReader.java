@@ -115,6 +115,12 @@ class InputReader implements Iterator<Document[]> {
                                 }
                                 phonetic.append(encoding.toLowerCase());
                             }
+                            else {
+                                if (!phonetic.toString().equals("")) {
+                                    phonetic.append(" ");
+                                }
+                                phonetic.append(term);
+                            }
                         }
                     } catch (IOException e) {
                         e.printStackTrace();

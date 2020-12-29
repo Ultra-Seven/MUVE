@@ -3,6 +3,7 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const recognition = new SpeechRecognition();
 import _ from "underscore";
 import Sample_311 from "./dataset/sample_311";
+import Sample_AU from "./dataset/sample_au";
 
 recognition.lang = 'en-US';
 let name = $('select').val();
@@ -10,15 +11,36 @@ $("#btn-start-recording").click(() => {
     recognition.start();
     console.log('Ready to receive voice input.');
 });
+
 $('select').on('change', function() {
     name = this.value;
-    console.log(name)
+    if (name === "sample_311") {
+        sample311.setup();
+    }
+    else if (name === "sample_au") {
+        sampleAU.setup();
+    }
 });
+let window_height = window.innerHeight
+    || document.documentElement.clientHeight
+    || document.body.clientHeight;
+$("#list_content").height(Math.floor(window_height * 0.6) + "px");
 
-const dataset = new Sample_311();
-_.each(dataset.columns, column => {
-    $("#columns").append("<li>" + column + "</li>")
-})
+$("#query_content").height(Math.floor(window_height * 0.12) + "px");
+
+const sample311 = new Sample_311();
+const sampleAU = new Sample_AU();
+
+sample311.setup();
+
+window.onresize = () => {
+    window_height = window.innerHeight
+        || document.documentElement.clientHeight
+        || document.body.clientHeight;
+    $("#list_content").height(Math.floor(window_height * 0.6) + "px");
+
+    $("#query_content").height(Math.floor(window_height * 0.12) + "px");
+}
 
 let render_data;
 const AJAX = false;
@@ -44,6 +66,8 @@ if (!AJAX) {
 
 function draw(query_results) {
     $("#viz").empty();
+    $("#legend").empty();
+    const charts = [];
     _.each(query_results, (row, idx) => {
         const groupBys = Object.keys(row);
         const nrFigures = groupBys.length;
@@ -56,9 +80,10 @@ function draw(query_results) {
             const data = row[group]["data"];
             $("#" + rowName).append(
                 "<div id='" + barName +
-                "' style='width: " + width + "px; height: 280px;display: inline-block;'></div>"
+                "' style='width: " + width + "%; height: 280px;display: inline-block;'></div>"
             );
             const barChart = new Barchart(barName, []);
+            charts.push(barChart);
             barChart.drawBarChart(data, group);
             // Title name
             const key = Object.keys(data[0]["results"])[0];
@@ -80,6 +105,16 @@ function draw(query_results) {
         }
 
     });
+    const scales = charts[0].colorScales;
+    _.each(scales, (color, idx) => {
+        const id = "color_" + idx;
+        $("#legend").append("<button class='ui button' id='" + id +"'></button>");
+        $("#" + id).css("background-color", color);
+        $("#" + id).width("80px");
+        $("#" + id).height("30px");
+    });
+    $("#color_0").html("High").css('color', 'white').css("fontSize", 20);
+    $("#color_" + (scales.length - 1)).html("Low").css('color', 'white').css("fontSize", 20);
     // Remove watermarks
     $('.canvasjs-chart-credit').remove();
 }
@@ -105,8 +140,43 @@ recognition.onresult = function(event) {
             });
         }
         else {
-            ws.send(name + ";" + sentences);
+            ws.send(name + ";" + sentences + ";" + $("#viz").width());
         }
     }
 }
+
+$("#btn-submit").click(() => {
+    const sentences = $("#spoken-text").val();
+    console.log(sentences);
+    if (name) {
+        // ws.send(name + ";" + sentences);
+        if (AJAX) {
+            $.ajax({
+                type: "POST",
+                crossDomain: true,
+                url: "https://localhost:7000",
+                data: name + ";" + sentences,
+                dataType: "text",
+                success: resultData => {
+                    console.log("Receiving data");
+                    render_data = JSON.parse(resultData)
+                    // $("#answer").html(data);
+                    draw(render_data)
+                }
+            });
+        }
+        else {
+            ws.send(name + ";" + sentences + ";" + $("#viz").width());
+        }
+    }
+});
+
+$("#btn-dev").click(() => {
+    $('#detailed_response').html(JSON.stringify(render_data));
+    $('.longer.modal').modal('show');
+});
+
+$("#close_ok").click(() => {
+    $('.longer.modal').modal('hide');
+});
 
