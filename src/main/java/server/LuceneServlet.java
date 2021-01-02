@@ -22,6 +22,7 @@ import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import planning.viz.GreedyPlanner;
 import planning.viz.SimpleVizPlanner;
 
 import java.io.*;
@@ -108,7 +109,7 @@ public class LuceneServlet {
                 System.out.println(result);
                 JSONObject jsonObject = new JSONObject(result);
                 try {
-                    searchResults(ctx, jsonObject, query_list[0], width);
+                    searchResults(ctx, jsonObject, query_list[0], width, query_list[3]);
                 }
                 catch (Exception e) {
                     e.printStackTrace();
@@ -123,7 +124,8 @@ public class LuceneServlet {
     private static void searchResults(WsContext session,
                                       JSONObject queryTemplate,
                                       String dataset,
-                                      int width) throws IOException,
+                                      int width,
+                                      String planner) throws IOException,
             ParseException, JSQLParserException, SQLException {
         JSONArray params = queryTemplate.getJSONArray("params");
         List<String> listParams = new ArrayList<>();
@@ -156,8 +158,13 @@ public class LuceneServlet {
                 if (docs.length == 0) {
                     continue;
                 }
-                List<Map<String, List<ScoreDoc>>> planResults =
-                        SimpleVizPlanner.plan(docs, PlanConfig.NR_ROWS, R, searcher);
+                List<Map<String, List<ScoreDoc>>> planResults;
+                if (planner.equals("ilp")) {
+                    planResults = SimpleVizPlanner.plan(docs, PlanConfig.NR_ROWS, R, searcher);
+                }
+                else {
+                    planResults = GreedyPlanner.plan(docs, PlanConfig.NR_ROWS, R, searcher);
+                }
                 Set<Float> scoreSet = new LinkedHashSet<>();
                 planResults.forEach(row ->
                         row.values().forEach(

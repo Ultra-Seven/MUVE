@@ -7,13 +7,13 @@ import Sample_AU from "./dataset/sample_au";
 import Config from "./config";
 
 recognition.lang = 'en-US';
-let name = $('select').val();
+let name = $('#datasets').val();
 $("#btn-start-recording").click(() => {
     recognition.start();
     console.log('Ready to receive voice input.');
 });
 
-$('select').on('change', function() {
+$('#datasets').on('change', function() {
     name = this.value;
     if (name === "sample_311") {
         sample311.setup();
@@ -142,7 +142,8 @@ recognition.onresult = function(event) {
             });
         }
         else {
-            ws.send(name + ";" + sentences + ";" + $("#viz").width());
+            const params = [name, sentences, $("#viz").width(), $("#planner").val()]
+            ws.send(params.join(";"));
         }
     }
 }
@@ -168,7 +169,8 @@ $("#btn-submit").click(() => {
             });
         }
         else {
-            ws.send(name + ";" + sentences + ";" + $("#viz").width());
+            const params = [name, sentences, $("#viz").width(), $("#planner").val()]
+            ws.send(params.join(";"));
         }
     }
 });
