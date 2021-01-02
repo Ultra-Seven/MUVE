@@ -140,7 +140,6 @@ def preprocess(path):
                 process_chunk(chunk, col_mapping, f)
             else:
                 process_chunk(chunk, col_mapping, f)
-            break
     except OSError:
         print("Please provide a valid file path")
 
