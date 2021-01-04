@@ -137,7 +137,7 @@ def preprocess(path):
     :param path: path to the CSV the user wishes to change
     """
     col_mapping = {}
-    f = csv.writer(open('processed_temp.csv', 'w+'))
+    f = csv.writer(open('processed.csv', 'w+'))
     initialized = False
     try:
         for chunk in pd.read_csv(path, chunksize=10000):
@@ -147,7 +147,6 @@ def preprocess(path):
                 process_chunk(chunk, col_mapping, f)
             else:
                 process_chunk(chunk, col_mapping, f)
-            break
     except OSError:
         print("Please provide a valid file path")
 
