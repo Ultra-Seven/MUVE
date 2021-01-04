@@ -33,12 +33,14 @@ def is_date(string, fuzzy=False):
         return False
 
 
-def time_of_day(hour):
+def time_of_day(hour, minute, second):
     """
     Return English representation of a given hour in the day.
 
     :param hour: the hour, given in military time
     """
+    if hour == 0 and minute == 0 and second == 0:
+        return ""
     if hour < 6 or hour > 20:
         return "Night"
     if hour > 5 and hour < 12:
@@ -110,8 +112,9 @@ def process_chunk(chunk, mapping, f):
                     date = parse(chunk.iloc[idx, mapping[col][0]], fuzzy=True)
                     row.append(str(date.year))
                     row.append(num_to_month[date.month])
-                    row.append(time_of_day(date.day))
-                    row.append(str(date.hour))
+                    row.append(str(date.day))
+                    row.append(time_of_day(
+                        date.hour, date.minute, date.second))
                 except TypeError:
                     row.append("")
                     row.append("")
