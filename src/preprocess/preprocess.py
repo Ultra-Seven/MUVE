@@ -125,7 +125,10 @@ def process_chunk(chunk, mapping, f):
                     row.append("")
                     row.append("")
             else:
-                row.append(str(chunk.iloc[idx, mapping[col][0]]))
+                if str(chunk.iloc[idx, mapping[col][0]]) != "nan":
+                    row.append(str(chunk.iloc[idx, mapping[col][0]]))
+                else:
+                    row.append("")
         f.writerow(row)
 
 
