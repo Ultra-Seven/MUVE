@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Optimal Interfaces</title>
+    <title>Baseline</title>
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.1/css/font-awesome.min.css" />
     <link href="https://fonts.googleapis.com/css?family=Shadows+Into+Light" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="/css/semantic.min.css">
-    <link rel="stylesheet" type="text/css" href="/css/style.css">
+    <link rel="stylesheet" type="text/css" href="/css/dataTone.css">
 </head>
 <div class="ui tablet computer only padded grid" style="display: none" id="result_body">
     <div class="ui top fixed borderless huge inverted menu">
@@ -29,11 +29,6 @@
             <option value="sample_311">sample_311</option>
             <option value="sample_au">sample_au</option>
             <option value="dob_job">dob_job</option>
-        </select>
-
-        <select class="ui dropdown"  name="planner" id="planner">
-            <option value="ilp">ILP</option>
-            <option value="greedy">Greedy</option>
         </select>
 
         <div class="ui message" id="overview">
@@ -63,16 +58,19 @@
             <div class="ui positive button" id="btn-submit">Click to Submit</div>
             <div class="ui negative button" id="btn-dev">Show Messages</div>
         </div>
-        <div id="voz">
-        </div>
-        <div id="viz_title"></div>
-        <div id="viz" class="ui center aligned">
-            <div id="bar1" style="width: 45%; height: 300px;display: inline-block;">
+        <div class="ui segments" id="inter_container">
+            <div class="ui top attached secondary segment">Query Interpretation</div>
+            <div class="clearing segment middle aligned" id="query_container">
+                <div id="query_interaction" class="ui grid container">
+                </div>
+                <div class="ui primary right floated button" id="btn-submit-query">Submit</div>
             </div>
-            <div id="bar2" style="width: 45%; height: 300px;display: inline-block;">
-            </div>
         </div>
-        <div class="ui buttons" id="legend">
+
+        <div class="ui segments" id="result_container">
+            <div class="ui top attached secondary segment">Query Result</div>
+            <div style="overflow-x:auto;" id="output">
+            </div>
         </div>
     </div>
 
@@ -91,7 +89,6 @@
     </div>
 </div>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script type="text/javascript" src="https://canvasjs.com/assets/script/jquery.canvasjs.min.js"></script>
 <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
 <script src="https://cdn.webrtc-experiment.com/RecordRTC.js"></script>
 <script src="/js/semantic.min.js"></script>

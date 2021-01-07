@@ -27,27 +27,21 @@ class Barchart {
         render_data = _.sortBy(render_data, point => {
             return point["label"];
         });
-        const title = context + " " + groupby;
-        // this.chart = new CanvasJS.Chart(this.container, {
-        //     animationEnabled: true,
-        //     title: {
-        //         text: title,
-        //         fontFamily: "Calibri, Optima, Candara, Verdana, Geneva, sans-serif",
-        //     },
-        //     data: [{
-        //         type: "column",
-        //         dataPoints: render_data
-        //     }]
-        // });
-        // this.chart.render();
+        const title = context + " \"" + groupby + "\"";
+        const fontColor = context === "value" ? "#8803a9" : "#774a00";
+
         $("#" + this.container).CanvasJSChart({
             animationEnabled: true,
             title: {
                 text: title,
                 fontFamily: "Calibri, Optima, Candara, Verdana, Geneva, sans-serif",
+                fontColor: fontColor
             },
             data: [{
                 type: "column",
+                indexLabel: "{y}",
+                indexLabelPlacement: "outside",
+                indexLabelOrientation: "horizontal",
                 dataPoints: render_data
             }],
             axisX: {

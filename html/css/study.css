@@ -1,0 +1,40 @@
+#account_name {
+    width: 40%;
+}
+body {
+    padding-top: 54px;
+    -webkit-font-smoothing: antialiased;
+    -moz-font-smoothing: grayscale;
+}
+
+
+#content_container {
+    margin:0 auto;
+}
+
+.ui.container > .ui.message {
+    box-shadow: none;
+    padding: 5rem 4rem;
+    margin-top: 1rem;
+}
+
+.ui.message h1.ui.header {
+    font-size: 2rem;
+}
+
+
+.ui.message p.lead {
+    font-size: 1.2rem;
+    color: #333333;
+    line-height: 1.4;
+    font-weight: 300;
+}
+
+.finished {
+    color: red;
+    cursor: not-allowed;
+    opacity: 0.5;
+    text-decoration: none;
+    pointer-events: none;
+}
+

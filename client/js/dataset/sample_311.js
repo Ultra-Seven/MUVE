@@ -15,7 +15,8 @@ class Sample_311 {
             "Latitude", "Longitude", "Location"
         ];
         this.samples = [
-            "How many cases in Brooklyn?"
+            "How many cases in Brooklyn?",
+            "How many cases for noise?"
         ];
     }
 

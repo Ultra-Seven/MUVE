@@ -114,3 +114,22 @@ aside {
   vertical-align: middle;
   margin-top: 40px;
 }
+
+
+.results {
+  height: 80%;
+  margin: auto;
+  padding-left: 10px;
+}
+
+#check_box {
+  width: 200px;
+  margin-left: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#submit_results {
+  float: right;
+}

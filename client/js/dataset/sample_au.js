@@ -14,7 +14,8 @@ class Sample_AU {
             "Revenue 1", "Tele-verified", "Batch", "Filename", "Batch Name", "Unnamed: 42", "Unnamed: 43"
         ];
         this.samples = [
-            "How many emails in CN?"
+            "How many emails in CN?",
+            "Average company size in CN?"
         ];
     }
 

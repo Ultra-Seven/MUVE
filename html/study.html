@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Study</title>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.1/css/font-awesome.min.css" />
+    <link href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Shadows+Into+Light" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="/css/semantic.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/study.css">
+</head>
+<body>
+<div class="ui modal test" id="account_name">
+    <div class="ui middle aligned center aligned grid">
+        <div class="column">
+            <h2 class="ui blue image header">
+                <div class="content">
+                    Input you name
+                </div>
+            </h2>
+            <div class="ui form">
+                <div class="ui segment">
+                    <div class="field">
+                        <div class="ui left icon input">
+                            <i class="user icon"></i>
+                            <input type="text" placeholder="Name" id="name_input">
+                        </div>
+                    </div>
+                    <div class="ui fluid primary submit button" id="confirm">Confirm</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="ui tablet computer only padded grid">
+    <div class="ui top fixed borderless huge inverted menu">
+        <div class="ui container">
+            <a class="header item" id="user"></a>
+            <a class="header item" id="method1">Method 1</a>
+            <a class="header item" id="method2">Method 2</a>
+        </div>
+    </div>
+</div>
+
+<div class="ui container">
+    <div class="thirteen wide column" id="content_container">
+        <div class="ui message">
+            <h1 class="ui huge header">Instructions:</h1>
+            <p class="lead">
+                This is a simple user study to compare two different ambiguous resolution methods in
+                <b>Natural Language Query</b>.
+                The first method is to offer users ambiguity widgets to correct the system decisions interactively.
+                However, the second method tends to show all possible results in multiple visualizations.<br><br>
+
+                In this user study, we hope you to find correct query results in three datasets.
+                Please follow the steps below:
+            </p>
+
+            <ul class="lead">
+                <li>
+                    Click "View details" button to get familiar with the interface for each method.
+                </li>
+                <li>
+                    For each dataset, queries are listed below. Please read the query description first
+                    and click the link to start the user study.
+                </li>
+                <li>
+                    Please type the query results into a input box on the top and click the "Submit results" button.
+                    Then you will return to this page, and precede to the next query.
+                </li>
+                <li>
+                    Click Method 2 on the top menu when you finish Method 1.
+                </li>
+            </ul>
+
+        </div>
+        <div class="ui hidden divider"></div>
+        <div class="ui grid">
+            <div class="column">
+                <h1 class="ui header" id="example_title">Example of </h1>
+                <p id="method_details">
+
+                </p>
+                <button class="ui small basic button" id="example_details">
+                    View details »
+                </button>
+            </div>
+        </div>
+        <div class="ui grid">
+            <div class="three column row">
+                <div class="column">
+                    <h1 class="ui header">311 Service Requests</h1>
+                    <ol class="study_query" id="sample_311">
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "city" = "BROOKLYN"</a></li>
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "borough" = "BRONX"</a></li>
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "complain type" = "Noise"</a></li>
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "park borough" = "QUEENS"</a></li>
+                        <li><a class="item" href="">Find the maximum of column "incident zip" where the value of column "cross street 1" = "5 Avenue"</a></li>
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "landmark" = "OCEAN AVENUE"</a></li>
+                        <li><a class="item" href="">Find the count of column "incident zip" where the value of column "street name" = "WALTON AVENUE"</a></li>
+                        <li><a class="item" href="">Find the count of column "incident zip" where the value of column "descriptor type" = "Loud Talking"</a></li>
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "cross street 2" = "MANHATTAN AVENUE"</a></li>
+                        <li><a class="item" href="">Find the count of column "complain type" where the value of column "cross street 2" = "VARICK AVENUE"</a></li>
+                    </ol>
+                </div>
+                <div class="column">
+                    <h1 class="ui header">Australian Jobs</h1>
+                    <ol class="study_query" id="sample_au">
+                        <li><a class="item" href="">Find the count of column "id" where the value of column "organization name" = "VMware"</a></li>
+                        <li><a class="item" href="">Find the count of column "id" where the value of column "authority level" = "Manager-Level"</a></li>
+                        <li><a class="item" href="">Find the maximum of column "batch" where the value of column "first name" = "Marc"</a></li>
+                        <li><a class="item" href="">Find the maximum of column "batch" where the value of column "first name" = "Marty"</a></li>
+                        <li><a class="item" href="">Find the minimum of column "batch" where the value of column "city" = "Dindaeng"</a></li>
+                        <li><a class="item" href="">Find the minimum of column "batch" where the value of column "city" = "Blackburn"</a></li>
+                        <li><a class="item" href="">Find the sum of column "batch" where the value of column "mailing country" = "CN"</a></li>
+                        <li><a class="item" href="">Find the sum of column "batch" where the value of column "last name" = "Malone"</a></li>
+                        <li><a class="item" href="">Find the total of column "batch" where the value of column "sp next" = "07/11/2019"</a></li>
+                        <li><a class="item" href="">Find the total of column "batch" where the value of column "last name" = "Irvine"</a></li>
+                    </ol>
+                </div>
+                <div class="column">
+                    <h1 class="ui header">DOB Job Application Filings</h1>
+                    <ol class="study_query" id="dob_job">
+                        <li><a class="item" href="">Find the count of column "job" where the value of column "city" = "Bronx"</a></li>
+                        <li><a class="item" href="">Find the count of column "job" where the value of column "street" = "8 Avenue"</a></li>
+                        <li><a class="item" href="">Find the maximum of column "estimate fee" where the value of column "applicant first name" = "John"</a></li>
+                        <li><a class="item" href="">Find the maximum of column "estimate fee" where the value of column "owner last name" = "SUNA"</a></li>
+                        <li><a class="item" href="">Find the minimum of column "initial fee" where the value of column "city" = "QUEEN"</a></li>
+                        <li><a class="item" href="">Find the minimum of column "initial fee" where the value of column "owner type" = "NYCHA"</a></li>
+                        <li><a class="item" href="">Find the sum of column "existing height" where the value of column "paid month" = "July"</a></li>
+                        <li><a class="item" href="">Find the sum of column "existing height" where the value of column "action month" = "May"</a></li>
+                        <li><a class="item" href="">Find the total of column "proposed height" where the value of column "job type" = "A2"</a></li>
+                        <li><a class="item" href="">Find the total of column "proposed height" where the value of column "city" = "NY"</a></li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        <div class="ui hidden divider"></div>
+        <div class="ui divider"></div>
+        <footer>@Cornell University, Database Group.</footer>
+    </div>
+</div>
+
+</body>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/underscore@1.12.0/underscore-min.js"></script>
+<script src="/js/semantic.min.js"></script>
+<script type="text/javascript">
+    let example_link = "localhost:7000";
+    let page = "/dataTone.html";
+    let user = sessionStorage.getItem('user');
+    let finishedQuery = JSON.parse(sessionStorage.getItem('finished') ||
+        "[[[], [], []], [[], [], []]]");
+    $(document).on('keypress',function(e) {
+        if(e.which === 13) {
+            $("#confirm").click();
+        }
+    });
+    if (user) {
+        $("#user").html("Hello, " + user);
+    }
+    else {
+        $("#account_name").modal('show');
+        $("#account_name").modal({
+            closable: true
+        });
+    }
+
+    $("#confirm").click(() => {
+        const value = $("#name_input").val();
+        if (value && value !== "") {
+            user = value;
+            $("#account_name").modal('hide');
+            sessionStorage.setItem('user', user);
+            $("#user").html("Hello, " + user);
+        }
+    });
+
+    $("#method1").click(() => {
+        // Save data to sessionStorage
+        sessionStorage.setItem('method', 'method1');
+        $("#example_title").html("Example of Method 1");
+        $("#method_details").html("For method 1, the interpretation of query is shown by ambiguity widgets.\n" +
+            "                    Please check whether the shown interpretation is equivalent to the query\n" +
+            "                    and select a correct item whenever you find any mismatches. After resolving ambiguity,\n" +
+            "                    Please click the \"submit\" button on the right. " +
+            "The query results will shown in \"Query Results\" box.");
+        page = "/dataTone.html";
+        const link = "https://" + example_link + page + "?";
+        initHref(link);
+        checkAvailability(0);
+    });
+
+    $("#method2").click(() => {
+        sessionStorage.setItem('method', 'method2');
+        $("#example_title").html("Example of Method 2");
+        $("#method_details").html("For method 2, the figures containing all query results\n" +
+            "                    will be rendered directly. Plots can either show " +
+            "different columns containing the same value or different values for the same column. " +
+            "Each possible query is rendered as a bar where the height of\n" +
+            "                    each bar represents the result for an according query.")
+        page = "/";
+        const link = "https://" + example_link + page + "?";
+        initHref(link);
+        checkAvailability(1);
+    });
+
+    function initHref(link) {
+        // Sample 311 Request
+        _.each(sample_311, (query, idx) => {
+            const child = $("#sample_311").children().eq(idx);
+            const params = ["mode=study", "explain=" + $(child).text().replace("\n", " "),
+                "sql=" + sample_311[idx], "dataset=0", "qid=" + idx, "user=" + user];
+            const url = link + params.join("&");
+            $(child).children().first().attr("href", url);
+        });
+        // Sample Australian Jobs
+        _.each(sample_au, (query, idx) => {
+            const child = $("#sample_au").children().eq(idx);
+            const params = ["mode=study", "explain=" + $(child).text().replace("\n", " "),
+                "sql=" + sample_au[idx], "dataset=1", "qid=" + idx, "user=" + user];
+            const url = link + params.join("&");
+            $(child).children().first().attr("href", url);
+        });
+        // DOB Jobs
+        _.each(dob_job, (query, idx) => {
+            const child = $("#dob_job").children().eq(idx);
+            const params = ["mode=study", "explain=" + $(child).text().replace("\n", " "),
+                "sql=" + dob_job[idx], "dataset=2", "qid=" + idx, "user=" + user];
+            const url = link + params.join("&");
+            $(child).children().first().attr("href", url);
+        });
+    }
+
+    function checkAvailability(methodID) {
+        const finishedArray = finishedQuery[methodID];
+        _.each(_.range(dob_job.length), (query, idx) => {
+            const child = $("#sample_311").children().eq(query).children().eq(0);
+            if (_.contains(finishedArray[0], query)) {
+                if(!$(child).hasClass('finished')){
+                    $(child).addClass('finished');
+                }
+            }
+            else {
+                $(child).removeClass("finished");
+            }
+        });
+
+        _.each(_.range(dob_job.length), (query, idx) => {
+            const child = $("#sample_au").children().eq(query).children().eq(0);
+            if (_.contains(finishedArray[1], query)) {
+                if(!$(child).hasClass('finished')){
+                    $(child).addClass('finished');
+                }
+            }
+            else {
+                $(child).removeClass("finished");
+            }
+        });
+
+        _.each(_.range(dob_job.length), (query, idx) => {
+            const child = $("#dob_job").children().eq(query).children().eq(0);
+            if (_.contains(finishedArray[2], query)) {
+                if(!$(child).hasClass('finished')){
+                    $(child).addClass('finished');
+                }
+            }
+            else {
+                $(child).removeClass("finished");
+            }
+        });
+    }
+
+    $("#example_details").click(() => {
+        const params = ["mode=test"];
+        const link = "https://" + example_link + page + "?" + params.join("&");
+        window.open(link,"_self")
+    });
+
+    const sample_311 = [
+        "How many complaints in Brooklyn?",
+        "How many complaints in Bronx?",
+        "How many complaints for noise?",
+        "How many complaints in QUEENS?",
+        "maximum of incident zip in 5 avenue",
+        "how many complaints in ocean avenue",
+        "count of incident zip for WALTON AVENUE",
+        "count of incident zip for Talking",
+        "How many complaints in MANHATTAN AVENUE",
+        "How many complaints in VARICK AVENUE"
+    ];
+    const sample_au = [
+        "count of id for vmware",
+        "count of id for manager-level",
+        "maximum of batch for Marc",
+        "maximum of batch for Marty",
+        "minimum of batch in Dindaeng",
+        "minimum of batch in Blackburn",
+        "sum of batch from CN",
+        "sum of batch for Malone",
+        "average of batch for 07_11_2019",
+        "average of batch for Irvine"
+    ];
+    const dob_job = [
+        "count of job in Bronx",
+        "count of job in 8 avenue",
+        "maximum of estimate fee for John",
+        "maximum of estimate fee for owner SUNA",
+        "minimum of initial cost for QUEEN",
+        "minimum of initial cost for NYCHA",
+        "sum of existing height in July",
+        "sum of existing height in May",
+        "average of proposed height in type A2",
+        "average of proposed height for NY"
+    ];
+    const method = sessionStorage.getItem('method') || "method1";
+    $("#" + method).click();
+</script>
+</html>

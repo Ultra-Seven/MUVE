@@ -1,6 +1,7 @@
 class Config {
     constructor() {
-        this.host = "wss://localhost:7000/lucene/";
+        this.host = "localhost:7000";
+        this.ajax = false;
     }
 }
 

@@ -7,12 +7,14 @@ import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
 import matching.FuzzySearch;
 import matching.MatchingVisitor;
+import matching.SelectVisitor;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -26,6 +28,7 @@ import planning.viz.GreedyPlanner;
 import planning.viz.SimpleVizPlanner;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,11 +74,42 @@ public class LuceneServlet {
         props.setProperty("password", "monetdb");
         connection = DriverManager.getConnection(url, props);
 
-        app.post("/", ctx -> {
+
+        app.post("/query", ctx -> {
             // some code
+            String sql = ctx.body();
+            System.out.println("Query sql: " + sql);
+            // Execute the query
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(sql);
+
+            JSONArray result = new JSONArray();
+            while (rs.next()) {
+                String targetName = rs.getString(1);
+                // Validate number
+                try {
+                    targetName = targetName.equals("null") ? "0" : targetName;
+                    targetName = new BigDecimal(targetName).toPlainString();
+                } catch (Exception e) {
+
+                }
+                result.put(targetName);
+            }
+            ctx.result(result.toString());
+        });
+
+        app.post("/study", ctx -> {
             String message = ctx.body();
-            System.out.println(message);
-            ctx.result("[]");
+            String[] elements = message.split("[|]");
+            String sql = "INSERT INTO user_study VALUES('" + elements[0]
+                    + "', " + elements[1] + ", '" + elements[2] + "', " + elements[3]
+                    + ", " + elements[4] +", " + elements[5]
+                    + ", " + elements[6] + ", " + elements[7] + ");";
+            System.out.println(sql + " " + message);
+            // Insert a row into database
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
+            ctx.result("Done!");
         });
 
         app.ws("/lucene", ws -> {
@@ -114,7 +148,124 @@ public class LuceneServlet {
                 catch (Exception e) {
                     e.printStackTrace();
                     System.out.println("Error");
-                    ctx.send("{\"data\": [], debug: {}}");
+                    ctx.send("{\"data\": [], debug: {}");
+                }
+            });
+        });
+
+        app.ws("/dataTone", ws -> {
+            ws.onConnect(ctx -> {
+                String username = "User" + nextUserNumber++;
+                userUsernameMap.put(ctx, username);
+            });
+            ws.onClose(ctx -> userUsernameMap.remove(ctx));
+            ws.onMessage(ctx -> {
+                String message = ctx.message();
+                String[] query_list = message.split(";");
+                String dataset = query_list[0];
+                String sentence = query_list[1];
+                List<String> commands = new ArrayList<>(6);
+                commands.add("curl");
+                commands.add("-F");
+                commands.add("t=" + dataset);
+                commands.add("-F");
+                commands.add("q=" + sentence);
+                commands.add(HostConfig.MODEL_HOST);
+
+                ProcessBuilder processBuilder = new ProcessBuilder(commands);
+                Process process = processBuilder.start();
+
+                String result = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+                System.out.println(result);
+
+                try {
+                    JSONObject jsonObject = new JSONObject(result);
+                    String sql = jsonObject.getString("sql") + ";";
+                    Select sqlStatement = (Select) CCJSqlParserUtil.parse(sql);
+                    PlainSelect plainSelect = (PlainSelect) sqlStatement.getSelectBody();
+                    List<SelectItem> selectItems = plainSelect.getSelectItems();
+                    Expression whereExpression = plainSelect.getWhere();
+                    MatchingVisitor visitor = new MatchingVisitor();
+                    SelectVisitor selector = new SelectVisitor();
+                    whereExpression.accept(visitor);
+
+                    for (SelectItem item: selectItems) {
+                        Expression selectExpr = ((SelectExpressionItem)item).getExpression();
+                        selectExpr.accept(selector);
+                    }
+
+
+                    List<String> listParams = new ArrayList<>();
+                    JSONArray params = jsonObject.getJSONArray("params");
+                    for (int paramCtr = 0; paramCtr < params.length(); paramCtr++){
+                        listParams.add(params.getString(paramCtr));
+                    }
+                    String curColumn = visitor.columns.get(0).getColumnName();
+                    String curValue = listParams.get(0);
+                    // Fuzzy search
+                    ScoreDoc[] docs = FuzzySearch.search(curValue, dataset);
+                    List<ScoreDoc> scoreList = Arrays.stream(docs).sorted((doc1, doc2) ->
+                            Double.compare(doc2.score, doc1.score)).collect(Collectors.toList());
+
+                    Set<String> columns = new HashSet<>(docs.length);
+                    List<String> valuesList = new ArrayList<>(docs.length);
+                    IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
+                    for (ScoreDoc scoreDoc: scoreList) {
+                        Document hitDoc = searcher.doc(scoreDoc.doc);
+                        String column = hitDoc.get("column");
+                        String value = hitDoc.get("text");
+                        columns.add(column);
+                        if (!valuesList.contains(value)) {
+                            valuesList.add(value);
+                        }
+                    }
+
+                    String[] ops = new String[]{"Count", "Maximum", "Minimum", "Average", "Sum", "Rows"};
+                    String columnSql = "select c.name from sys.columns c inner join sys.tables " +
+                            "t on t.id = c.table_id and t.name = '" + dataset + "';";
+
+                    List<String> targetColumns = new ArrayList<>();
+                    targetColumns.add("*");
+                    Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(columnSql);
+                    while (rs.next()) {
+                        String targetName = rs.getString(1);
+                        targetColumns.add(targetName);
+                    }
+                    List<String> allColumns = new ArrayList<>(targetColumns);
+                    Collections.sort(allColumns);
+                    String curTargetColumn = selector.columns.get(0);
+                    String curOp = ops[selector.ops.get(0)];
+                    Collections.sort(targetColumns);
+                    targetColumns.remove(curTargetColumn);
+                    targetColumns.add(0, curTargetColumn);
+
+                    JSONObject possibleQueries = new JSONObject();
+
+                    List<String> opsList = new ArrayList<>(Arrays.asList(ops));
+                    opsList.remove(curOp);
+                    opsList.add(0, curOp);
+
+                    List<String> columnsList = new ArrayList<>(columns);
+                    Collections.sort(columnsList);
+                    columnsList.remove(curColumn);
+                    columnsList.add(0, curColumn);
+
+//                valuesList.remove(curValue);
+//                valuesList.add(0, curValue);
+
+                    possibleQueries.put("ops", opsList);
+                    possibleQueries.put("selects", targetColumns);
+                    possibleQueries.put("columns", allColumns);
+                    possibleQueries.put("values", valuesList);
+                    ctx.send(possibleQueries.toString());
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                    ctx.send("[]");
                 }
             });
         });
@@ -233,8 +384,17 @@ public class LuceneServlet {
                             int nrRows = 0;
                             for (int rowCtr = 0; rs.next(); rowCtr++) {
                                 for (int columnCtr = 1; columnCtr <= resultMap.size(); columnCtr++) {
+                                    String resultStr = rs.getString(columnCtr);
+                                    // Validate number
+                                    try {
+                                        resultStr = resultStr.equals("null") ? "0" : resultStr;
+                                        resultStr = new BigDecimal(resultStr).toPlainString();
+                                    } catch (Exception e) {
+
+                                    }
+
                                     resultMap.get(selectItems.get(columnCtr - 1).toString())
-                                            .add(rs.getString(columnCtr));
+                                            .add(resultStr);
                                 }
                                 nrRows++;
                             }

@@ -1,6 +1,7 @@
 package matching;
 
 import matching.indexing.Indexer;
+import matching.schema.DobJob;
 import matching.schema.Sample311;
 import matching.schema.SampleAu;
 import matching.schema.Schema;
@@ -12,16 +13,17 @@ public class FuzzyIndex {
     public static final String PHONETIC_DIR = "./phonetic";
     public static final String DATA_FILE = "/Users/tracy/Documents/Research/mlsql/sample_311.csv";
     public static final String AU_FILE = "/Users/tracy/Documents/PythonProject/xls2csv/csv/sample_au.csv";
+    public static final String JOB_FILE = "/Users/tracy/Downloads/dob_job.csv";
     public static final String FIELD_CONTENTS = "content";
     public static final String FIELD_PATH = "path";
 
 
     public static void main(String[] args) throws IOException {
-        String inputFilePath = AU_FILE;
-        String[] name_arr = inputFilePath.split("/");
 //        Schema schema = new Sample311();
-
-        Schema schema = new SampleAu();
+//        Schema schema = new SampleAu();
+        Schema schema = new DobJob();
+        String inputFilePath = JOB_FILE;
+        String[] name_arr = inputFilePath.split("/");
 
         String name = name_arr[name_arr.length - 1].split("\\.")[0];
         String outputDirPath = (Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR) + "/" + name;
