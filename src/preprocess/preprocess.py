@@ -26,8 +26,8 @@ def is_date(string, fuzzy=False):
     :param fuzzy: bool, ignore unknown tokens in string if True
     """
     try:
-        parse(string, fuzzy=fuzzy)
-        if "/" in string:
+        if "/" in string or "_" in string or "-" in string:
+            parse(string, fuzzy=fuzzy)
             return True
         return False
 
