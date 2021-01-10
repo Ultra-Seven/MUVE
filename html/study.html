@@ -25,6 +25,25 @@
                             <i class="user icon"></i>
                             <input type="text" placeholder="Name" id="name_input">
                         </div>
+                        <div class="inline fields" id="familiarity_container">
+                            <label>Familiarity level with SQL:</label>
+                            <div class="ui radio checkbox field">
+                                <input type="radio" name="level" checked="checked">
+                                <label>0</label>
+                            </div>
+                            <div class="ui radio checkbox field">
+                                <input type="radio" name="level">
+                                <label>1</label>
+                            </div>
+                            <div class="ui radio checkbox field">
+                                <input type="radio" name="level">
+                                <label>2</label>
+                            </div>
+                            <div class="ui radio checkbox field">
+                                <input type="radio" name="level">
+                                <label>3</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="ui fluid primary submit button" id="confirm">Confirm</div>
                 </div>
@@ -149,6 +168,8 @@
     let example_link = "localhost:7000";
     let page = "/dataTone.html";
     let user = sessionStorage.getItem('user');
+    let level = sessionStorage.getItem('level');
+    const method = sessionStorage.getItem('method') || "method1";
     let finishedQuery = JSON.parse(sessionStorage.getItem('finished') ||
         "[[[], [], []], [[], [], []]]");
     $(document).on('keypress',function(e) {
@@ -170,9 +191,15 @@
         const value = $("#name_input").val();
         if (value && value !== "") {
             user = value;
-            $("#account_name").modal('hide');
-            sessionStorage.setItem('user', user);
             $("#user").html("Hello, " + user);
+
+            level = parseInt($('#familiarity_container').find('[name="level"]:checked').next().html());
+            console.log(level);
+            sessionStorage.setItem('level', level);
+            sessionStorage.setItem('user', user);
+
+            $("#account_name").modal('hide');
+            $("#" + method).click();
         }
     });
 
@@ -210,7 +237,7 @@
         _.each(sample_311, (query, idx) => {
             const child = $("#sample_311").children().eq(idx);
             const params = ["mode=study", "explain=" + $(child).text().replace("\n", " "),
-                "sql=" + sample_311[idx], "dataset=0", "qid=" + idx, "user=" + user];
+                "sql=" + sample_311[idx], "dataset=0", "qid=" + idx, "user=" + user, "level=" + level];
             const url = link + params.join("&");
             $(child).children().first().attr("href", url);
         });
@@ -218,7 +245,7 @@
         _.each(sample_au, (query, idx) => {
             const child = $("#sample_au").children().eq(idx);
             const params = ["mode=study", "explain=" + $(child).text().replace("\n", " "),
-                "sql=" + sample_au[idx], "dataset=1", "qid=" + idx, "user=" + user];
+                "sql=" + sample_au[idx], "dataset=1", "qid=" + idx, "user=" + user, "level=" + level];
             const url = link + params.join("&");
             $(child).children().first().attr("href", url);
         });
@@ -226,7 +253,7 @@
         _.each(dob_job, (query, idx) => {
             const child = $("#dob_job").children().eq(idx);
             const params = ["mode=study", "explain=" + $(child).text().replace("\n", " "),
-                "sql=" + dob_job[idx], "dataset=2", "qid=" + idx, "user=" + user];
+                "sql=" + dob_job[idx], "dataset=2", "qid=" + idx, "user=" + user, "level=" + level];
             const url = link + params.join("&");
             $(child).children().first().attr("href", url);
         });
@@ -234,7 +261,7 @@
 
     function checkAvailability(methodID) {
         const finishedArray = finishedQuery[methodID];
-        _.each(_.range(dob_job.length), (query, idx) => {
+        _.each(_.range(sample_311.length), (query, idx) => {
             const child = $("#sample_311").children().eq(query).children().eq(0);
             if (_.contains(finishedArray[0], query)) {
                 if(!$(child).hasClass('finished')){
@@ -246,7 +273,7 @@
             }
         });
 
-        _.each(_.range(dob_job.length), (query, idx) => {
+        _.each(_.range(sample_au.length), (query, idx) => {
             const child = $("#sample_au").children().eq(query).children().eq(0);
             if (_.contains(finishedArray[1], query)) {
                 if(!$(child).hasClass('finished')){
@@ -313,7 +340,6 @@
         "average of proposed height in type A2",
         "average of proposed height for NY"
     ];
-    const method = sessionStorage.getItem('method') || "method1";
     $("#" + method).click();
 </script>
 </html>

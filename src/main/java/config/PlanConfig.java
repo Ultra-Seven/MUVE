@@ -28,7 +28,7 @@ public class PlanConfig {
     /**
      * Select first few queries that have the highest probability.
      */
-    public static final int TOPK = 100;
+    public static final int TOPK = 50;
     /**
      * The Number of ranks that each documents will be assigned.
      */

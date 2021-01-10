@@ -30,6 +30,10 @@ body {
     font-weight: 300;
 }
 
+#familiarity_container {
+    padding-top: 10px;
+}
+
 .finished {
     color: red;
     cursor: not-allowed;

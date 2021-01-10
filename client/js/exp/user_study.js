@@ -18,6 +18,7 @@ class Study {
         const dataset = urlParams.get('dataset');
         const user = urlParams.get('user');
         this.user = user;
+        this.level = parseInt(urlParams.get('level'));
         this.dataset = dataset;
         this.qid = parseInt(urlParams.get('qid'));
         this.explain = explain;
@@ -67,7 +68,7 @@ class Study {
             return;
         }
         const dataset = $('#datasets').val();
-        const message = [this.user, this.method, dataset, this.qid, results,
+        const message = [this.user, this.level, this.method, dataset, this.qid, results,
             shown, respond, shown + respond];
         this.querySender.send(message.join("|"));
     }

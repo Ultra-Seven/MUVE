@@ -102,9 +102,9 @@ public class LuceneServlet {
             String message = ctx.body();
             String[] elements = message.split("[|]");
             String sql = "INSERT INTO user_study VALUES('" + elements[0]
-                    + "', " + elements[1] + ", '" + elements[2] + "', " + elements[3]
-                    + ", " + elements[4] +", " + elements[5]
-                    + ", " + elements[6] + ", " + elements[7] + ");";
+                    + "', " + elements[1] + ", " + elements[2] + ", '" + elements[3] + "', " + elements[4]
+                    + ", " + elements[5] +", " + elements[6]
+                    + ", " + elements[7] + ", " + elements[8] + ");";
             System.out.println(sql + " " + message);
             // Insert a row into database
             Statement statement = connection.createStatement();
@@ -143,7 +143,7 @@ public class LuceneServlet {
                 System.out.println(result);
                 JSONObject jsonObject = new JSONObject(result);
                 try {
-                    searchResults(ctx, jsonObject, query_list[0], width, query_list[3]);
+                    searchResults(ctx, jsonObject, query_list[0], 900, query_list[3]);
                 }
                 catch (Exception e) {
                     e.printStackTrace();
@@ -236,7 +236,7 @@ public class LuceneServlet {
                         targetColumns.add(targetName);
                     }
                     List<String> allColumns = new ArrayList<>(targetColumns);
-                    Collections.sort(allColumns);
+//                    Collections.sort(allColumns);
                     String curTargetColumn = selector.columns.get(0);
                     String curOp = ops[selector.ops.get(0)];
                     Collections.sort(targetColumns);
