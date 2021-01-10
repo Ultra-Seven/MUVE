@@ -3,15 +3,6 @@ import Connector from "../engine/connector";
 class Study {
     constructor(urlParams, engine, config) {
         $("#result_body").show();
-        $("#result_box").change(function() {
-            if(this.checked) {
-                $("#result-text").val('');
-                $("#result-text").prop("disabled", true);
-            }
-            else {
-                $("#result-text").prop("disabled", false);
-            }
-        });
 
         const explain = urlParams.get('explain');
         const sql = urlParams.get('sql');

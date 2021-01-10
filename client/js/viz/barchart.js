@@ -46,7 +46,7 @@ class Barchart {
             }],
             axisX: {
                 labelMaxWidth: 100,
-                labelAngle: -90,
+                labelAngle: 90,
                 interval: 1
             },
         });
