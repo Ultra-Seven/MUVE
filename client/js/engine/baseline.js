@@ -38,6 +38,7 @@ class Baseline {
                     $("#output").empty();
                     $("#output").append("<p>No results</p>");
                 }
+                this.end = Date.now();
             },
             url: config.host + ajaxRoute
         }

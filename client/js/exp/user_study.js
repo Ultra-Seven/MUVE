@@ -54,7 +54,7 @@ class Study {
     send(results) {
         const renderEnd = this.engine.renderTime;
         const shown = renderEnd - this.shownStart;
-        const respond = Date.now() - renderEnd;
+        const respond = this.engine.end - renderEnd;
         if (isNaN(respond) || isNaN(shown)) {
             return;
         }

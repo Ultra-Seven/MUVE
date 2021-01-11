@@ -28,6 +28,7 @@ class Engine {
                     const data = JSON.parse(msg.data);
                     // $("#answer").html(data);
                     this.render_data = data["data"];
+                    this.renderTime = 0;
                     const template = data["debug"]
                     if (this.render_data.length === 0) {
                         $("#viz").empty();
@@ -36,7 +37,6 @@ class Engine {
                     else {
                         this.draw(this.render_data);
                     }
-                    this.renderTime = Date.now();
                 },
                 url: config.host + route
             };
@@ -79,7 +79,7 @@ class Engine {
                     "<div id='" + barName +
                     "' style='width: " + width + "%; height: 280px;display: inline-block;'></div>"
                 );
-                const barChart = new Barchart(barName, []);
+                const barChart = new Barchart(barName, this);
                 charts.push(barChart);
                 barChart.drawBarChart(data, group);
                 // Title name

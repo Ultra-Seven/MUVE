@@ -1,8 +1,8 @@
 import _ from "underscore";
 class Barchart {
-    constructor(container, data) {
+    constructor(container, engine) {
         this.container = container;
-        this.data = data
+        this.engine = engine;
         this.colorScales = [
             "#ff0000", "#fff200",
             "#00ff00", "#008255", "#5180dd",
@@ -21,7 +21,17 @@ class Barchart {
             return {
                 y: type === "agg" ? parseInt(element) : obj["results"][key].length,
                 label: obj["label"],
-                color: this.colorScales[rank]
+                color: this.colorScales[rank],
+                click: (e) => {
+                    this.engine.end = Date.now();
+                    alert("Timer stops! Please submit your results");
+                },
+                mouseover: (e) => {
+                    console.log(this.engine.renderTime);
+                    if (this.engine.renderTime === 0) {
+                        this.engine.renderTime = Date.now();
+                    }
+                }
             }
         });
         render_data = _.sortBy(render_data, point => {
