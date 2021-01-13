@@ -15,6 +15,7 @@ public class GreedyPlanner {
     public static List<Map<String, List<ScoreDoc>>> plan(ScoreDoc[] hitDocs,
                                                          int nrRows, int R,
                                                          IndexSearcher searcher) throws IOException {
+        Arrays.sort(hitDocs, (doc1, doc2) -> Double.compare(doc2.score, doc1.score));
         int nrDocs = hitDocs.length;
         // Calculate average rewards for each plot.
         List<Integer>[] docToCtx = new ArrayList[nrDocs];

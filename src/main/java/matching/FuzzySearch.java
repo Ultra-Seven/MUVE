@@ -94,6 +94,68 @@ public class FuzzySearch {
         return hits;
     }
 
+    public static ScoreDoc[] search(String query_str, String dataset, int TOPK) throws IOException, ParseException {
+        String normalized = preprocessing(query_str);
+        Query query = buildTermsQuery(normalized);
+        IndexReader reader;
+        IndexSearcher searcher;
+        if (!searchers.containsKey(dataset)) {
+            String searchDir = (Indexer.Phonetic ? PHONETIC_DIR : INDEX_DIR) + "/" + dataset;
+            reader = DirectoryReader.open(FSDirectory.open(Paths.get(searchDir)));
+            searcher = new IndexSearcher(reader);
+            searchers.put(dataset, searcher);
+        }
+        else {
+            searcher = searchers.get(dataset);
+        }
+        ScoreDoc[] hits = searcher.search(query, TOPK).scoreDocs;
+        // Use phonetic indexing
+        Map<Integer, ScoreDoc> idToDocs = new HashMap<>(hits.length);
+        if (Indexer.Phonetic) {
+            Arrays.stream(hits).forEach(doc -> idToDocs.put(doc.doc, doc));
+            Query phoneticQuery = buildPhoneticQuery(normalized);
+            ScoreDoc[] phoneticHits = searcher.search(phoneticQuery, TOPK).scoreDocs;
+            for (ScoreDoc phoneticDoc : phoneticHits) {
+                int docID = phoneticDoc.doc;
+                if (idToDocs.containsKey(docID)) {
+                    idToDocs.get(docID).score += phoneticDoc.score;
+                }
+                else {
+                    idToDocs.put(docID, phoneticDoc);
+                }
+            }
+        }
+        // Reorder the documents by similarity
+        String finalPhonetic = phoneticEncoder(query_str);
+        hits = idToDocs.values().stream().sorted((doc1, doc2) -> {
+            try {
+                Document hitDoc1 = searcher.doc(doc1.doc);
+                String text1 = hitDoc1.get("text");
+                String phonetic1 = hitDoc1.get("phonetic");
+                Document hitDoc2 = searcher.doc(doc2.doc);
+                String text2 = hitDoc2.get("text");
+                String phonetic2 = hitDoc2.get("phonetic");
+                float score1 = (float) ProbabilityScore.score(normalized, text1);
+                float score2 = (float) ProbabilityScore.score(normalized, text2);
+
+                float phoneticScore1 = (float) ProbabilityScore.score(finalPhonetic, phonetic1);
+                float phoneticScore2 = (float) ProbabilityScore.score(finalPhonetic, phonetic2);
+
+                doc1.score = score1;
+                doc2.score = score2;
+
+                doc1.score = 0.5f * score1 + 0.5f * phoneticScore1;
+                doc2.score = 0.5f * score2 + 0.5f * phoneticScore2;
+                if (score1 < score2) return 1;
+                if (score1 > score2) return -1;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return 0;
+        }).collect(Collectors.toList()).subList(0, TOPK).toArray(new ScoreDoc[0]);
+        return hits;
+    }
+
     public static String preprocessing(String query_str) {
         return query_str.toLowerCase()
                 .replaceAll("(?<=\\d)(rd|st|nd|th)\\b", "");

@@ -82,16 +82,15 @@ else if (mode === "study") {
         studyEngine.send(results);
     });
 }
+else {
+    // Empty string
+    // Show or hide development message
+    $("#btn-dev").click(() => {
+        $('.longer.modal').modal('show');
+    });
 
-
-// empty string
-// Show or hide development message
-// $("#btn-dev").click(() => {
-//     $('#detailed_response').html(JSON.stringify(render_data));
-//     $('.longer.modal').modal('show');
-// });
-//
-// $("#close_ok").click(() => {
-//     $('.longer.modal').modal('hide');
-// });
+    $("#close_ok").click(() => {
+        $('.longer.modal').modal('hide');
+    });
+}
 

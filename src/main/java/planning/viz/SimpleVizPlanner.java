@@ -194,14 +194,17 @@ public class SimpleVizPlanner {
 
         // Solve model
         glp_iocp iocp = new glp_iocp();
+
         GLPK.glp_init_iocp(iocp);
 
 
         glp_smcp simplexParams = new glp_smcp();
+
         GLPK.glp_init_smcp(simplexParams);
 
-//        GLPK.glp_write_lp(lp, null, "mipteste.mip");
         GLPK.glp_simplex(lp, simplexParams);
+        iocp.setTm_lim(10000);
+        simplexParams.setTm_lim(10000);
         int ret = GLPK.glp_intopt(lp, iocp);
 
         // Retrieve solution
@@ -247,21 +250,21 @@ public class SimpleVizPlanner {
                 results.add(resultsPerRow);
             }
 
-            System.out.println("");
-            int rowCtr = 1;
-            for (Map<String, List<ScoreDoc>> resultsPerRow: results) {
-                System.out.println("Row: " + rowCtr);
-                for (String groupVal: resultsPerRow.keySet()) {
-                    System.out.println("Group by: " + groupVal);
-                    for (ScoreDoc doc: resultsPerRow.get(groupVal)) {
-                        Document hitDoc = searcher.doc(doc.doc);
-                        String column_str = hitDoc.get("column");
-                        String content_str = hitDoc.get("text");
-                        System.out.println("Column: " + column_str + "\tParam: " + content_str + "\tScore:" + doc.score);
-                    }
-                }
-                rowCtr++;
-            }
+//            System.out.println("");
+//            int rowCtr = 1;
+//            for (Map<String, List<ScoreDoc>> resultsPerRow: results) {
+//                System.out.println("Row: " + rowCtr);
+//                for (String groupVal: resultsPerRow.keySet()) {
+//                    System.out.println("Group by: " + groupVal);
+//                    for (ScoreDoc doc: resultsPerRow.get(groupVal)) {
+//                        Document hitDoc = searcher.doc(doc.doc);
+//                        String column_str = hitDoc.get("column");
+//                        String content_str = hitDoc.get("text");
+//                        System.out.println("Column: " + column_str + "\tParam: " + content_str + "\tScore:" + doc.score);
+//                    }
+//                }
+//                rowCtr++;
+//            }
             // Free memory
             GLPK.glp_delete_prob(lp);
             return results;

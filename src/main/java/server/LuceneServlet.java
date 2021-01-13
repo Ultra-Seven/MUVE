@@ -300,12 +300,15 @@ public class LuceneServlet {
             JSONArray resultRows = new JSONArray();
             // Matching all parameters in Lucene. TODO: support more parameters
             int R = Math.min(PlanConfig.R, width);
+            JSONObject debugObj = new JSONObject();
             for (int paramCtr = 0; paramCtr < listParams.size(); paramCtr++) {
                 String param = listParams.get(paramCtr);
                 Column column = columns.get(paramCtr);
 
                 ScoreDoc[] docs = FuzzySearch.search(param, dataset);
+                long searchStart = System.currentTimeMillis();
                 IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
+                long searchEnd = System.currentTimeMillis();
                 if (docs.length == 0) {
                     continue;
                 }
@@ -316,6 +319,7 @@ public class LuceneServlet {
                 else {
                     planResults = GreedyPlanner.plan(docs, PlanConfig.NR_ROWS, R, searcher);
                 }
+                long planEnd = System.currentTimeMillis();
                 Set<Float> scoreSet = new LinkedHashSet<>();
                 planResults.forEach(row ->
                         row.values().forEach(
@@ -331,6 +335,7 @@ public class LuceneServlet {
                     float scoreElement = scoreList.get(nrScores - scoreCtr - 1);
                     ranks.put(scoreElement, scoreCtr);
                 }
+                long executionStart = System.currentTimeMillis();
                 for (Map<String, List<ScoreDoc>> resultPerRow: planResults) {
                     JSONObject resultObjet = new JSONObject();
                     // Counting widths
@@ -424,9 +429,13 @@ public class LuceneServlet {
                     }
                     resultRows.put(resultObjet);
                 }
+                long executionEnd = System.currentTimeMillis();
+                debugObj.put("searchMillis", (searchEnd - searchStart)).put("planMillis", (planEnd - searchEnd))
+                        .put("executionMillis", (executionEnd - executionStart)).put("nrQueries", docs.length)
+                        .put("query", sql).put("planner", planner.toUpperCase()).put("rows", "2");
             }
             resultObj.put("data", resultRows);
-            resultObj.put("debug", new JSONArray().put(queryTemplate));
+            resultObj.put("debug", debugObj);
             session.send(resultObj.toString());
         }
         else {

@@ -72,18 +72,19 @@
         </div>
     </div>
 
-    <div class="ui longer modal scrolling">
+    <div class="ui longer modal scrolling" id="debug_container">
         <div class="header">
             Response Message
         </div>
-        <div class="scrolling image content">
-            <div class="description" id="detailed_response" style="width: 100%;">
+        <div class="scrolling content" id="infor_container" style="height: 1000px; ">
+            <div class="description" id="detailed_response" style="width: 100%; overflow: scroll;">
 
             </div>
         </div>
-        <div class="actions">
-            <div class="ui primary approve button" id="close_ok">OK</div>
-        </div>
+<!--        <div class="actions bottom fixed">-->
+<!--            <div class="ui primary approve button" id="close_ok">OK</div>-->
+<!--        </div>-->
+        <div class="ui primary approve bottom attached button" id="close_ok">OK</div>
     </div>
 </div>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>

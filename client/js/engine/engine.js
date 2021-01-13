@@ -28,6 +28,8 @@ class Engine {
                     const data = JSON.parse(msg.data);
                     // $("#answer").html(data);
                     this.render_data = data["data"];
+                    this.debug_data = data["debug"];
+                    this.append_debug(this.debug_data);
                     this.renderTime = 0;
                     const template = data["debug"]
                     if (this.render_data.length === 0) {
@@ -120,6 +122,19 @@ class Engine {
         $("#color_" + (scales.length - 1)).html("Low").css('color', 'white').css("fontSize", 20);
         // Remove watermarks
         $('.canvasjs-chart-credit').remove();
+    }
+
+    append_debug(debug_data) {
+        const date = new Date();
+        const time = "[" + date.toUTCString() + "]";
+        const query = " SQL: " + debug_data["query"];
+        const setup = "[Setup] Planner: " + debug_data["planner"] + ", Rows: " + debug_data["rows"];
+        const performance = "[Performance] Matching Time: " + debug_data["searchMillis"]
+            + " ms, Planning Time: " + debug_data["planMillis"] + " ms";
+        const performance_2 = "[Performance] Execution Time: " + debug_data["executionMillis"]
+            + " ms, Nr. Queries: " + debug_data["nrQueries"];
+        $("#detailed_response").append("<p>" + time + query + "<\p>").append("<p>" + setup + "<\p>")
+            .append("<p>" + performance + "<\p>").append("<p>" + performance_2 + "<\p>");
     }
 }
 export default Engine;

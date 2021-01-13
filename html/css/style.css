@@ -133,3 +133,7 @@ aside {
 #submit_results {
   float: right;
 }
+
+#debug_container {
+  height: 80%;
+}
