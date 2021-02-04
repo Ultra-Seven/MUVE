@@ -1,6 +1,13 @@
 package matching.score;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 
+/**
+ * Measure th score of each query. We consider
+ * the string similarity. The score is defined by the
+ * Jaro–Winkler distance.
+ *
+ * @author Ziyun Wei
+ */
 public class ProbabilityScore {
 
     public static double score(String inputString, String hitString) {

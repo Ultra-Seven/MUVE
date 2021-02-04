@@ -28,7 +28,7 @@ public class PlanConfig {
     /**
      * Select first few queries that have the highest probability.
      */
-    public static final int TOPK = 50;
+    public static final int TOPK = 20;
     /**
      * The Number of ranks that each documents will be assigned.
      */
@@ -38,4 +38,16 @@ public class PlanConfig {
      * according number of ranks.
      */
     public static final double BASE = 1.16;
+    /**
+     * Duration of reading each title.
+     */
+    public static final int READ_TITLE = 500;
+    /**
+     * Duration of reading a data point.
+     */
+    public static final int READ_DATA = 10;
+    /**
+     * The significance of processing time in objective function
+     */
+    public static final double Processing_WEIGHT = 0.5;
 }

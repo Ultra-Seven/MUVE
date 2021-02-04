@@ -1,9 +1,6 @@
 package matching;
-
-
 import config.PlanConfig;
 import matching.indexing.Indexer;
-import matching.indexing.ProbabilitySimilarity;
 import matching.score.ProbabilityScore;
 import org.apache.commons.codec.language.DoubleMetaphone;
 import org.apache.lucene.document.Document;
@@ -11,11 +8,7 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
-import org.apache.lucene.search.comparators.FloatComparator;
-import org.apache.lucene.search.similarities.BM25Similarity;
-import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.search.spans.SpanMultiTermQueryWrapper;
 import org.apache.lucene.search.spans.SpanNearQuery;
 import org.apache.lucene.search.spans.SpanQuery;

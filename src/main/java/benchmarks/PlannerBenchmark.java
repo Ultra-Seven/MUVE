@@ -17,14 +17,14 @@ import java.util.*;
 
 public class PlannerBenchmark {
     public static String[] testQueries = new String[]{
-            "Bronx", "8 avenue", "John", "SUNA", "QUEEN",
-            "NYCHA", "July", "May", "JOE", "NY"
+            "Bronx"
     };
     public static String dataset = "dob_job";
+    public final static int NR_CASES = 1;
     public static Pair<Double, Double> runCase(int topK, int nrRows, boolean isGreedy) throws IOException, ParseException {
         List<Long> timerGreedy = new ArrayList<>();
         List<Double> utilityGreedy = new ArrayList<>();
-        for (int testCtr = 0; testCtr < 5; testCtr++) {
+        for (int testCtr = 0; testCtr < NR_CASES; testCtr++) {
             for (String query: testQueries) {
                 ScoreDoc[] docs = FuzzySearch.search(query, dataset, topK);
                 if (topK != docs.length) {
@@ -39,14 +39,22 @@ public class PlannerBenchmark {
                 long timer2 = System.currentTimeMillis();
                 timerGreedy.add(timer2 - timer1);
                 double utility = 0;
+                int rowCtr = 1;
                 for (Map<String, List<ScoreDoc>> rowResults : results) {
+                    System.out.println("Row: " + rowCtr);
                     for (String plotName : rowResults.keySet()) {
+                        List<String> queries = new ArrayList<>();
                         for (ScoreDoc scoreDoc : rowResults.get(plotName)) {
                             double score = scoreDoc.score;
+                            Document document = searcher.doc(scoreDoc.doc);
                             utility += score;
+                            queries.add(document.get("column") + "=" + document.get("text") + ":" + score);
                         }
+                        System.out.println("Plot: " + plotName + "\t" + "Queries: " + String.join(",", queries));
                     }
+                    rowCtr++;
                 }
+                System.out.println("Utility: " + utility);
                 utilityGreedy.add(utility);
             }
         }
@@ -62,7 +70,7 @@ public class PlannerBenchmark {
 
 
     public static void varyTopK() throws IOException, ParseException {
-        int[] topKs = new int[]{20, 40, 60, 80, 100};
+        int[] topKs = new int[]{50};
         FileWriter fw = new FileWriter("planner_varyK.csv");
         fw.write("TopK,Rows,Width,Time,Utility,Planner\n");
         // Greedy
@@ -108,7 +116,7 @@ public class PlannerBenchmark {
     }
 
     public static void main(String[] args) throws IOException, ParseException {
-//        varyTopK();
-        varyRows();
+        varyTopK();
+//        varyRows();
     }
 }

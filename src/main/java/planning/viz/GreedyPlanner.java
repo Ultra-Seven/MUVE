@@ -11,6 +11,11 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 
+/**
+ * Naive greedy planner to prioritize high probability queries
+ *
+ * @author Ziyun Wei
+ */
 public class GreedyPlanner {
     public static List<Map<String, List<ScoreDoc>>> plan(ScoreDoc[] hitDocs,
                                                          int nrRows, int R,

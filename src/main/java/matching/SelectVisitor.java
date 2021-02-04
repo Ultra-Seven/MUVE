@@ -12,8 +12,6 @@ public class SelectVisitor extends PlainVisitor {
     public final List<String> columns = new ArrayList<>();
     public final List<Integer> ops = new ArrayList<>();
 
-
-
     @Override
     public void visit(Function function) {
         String name = function.getName();
