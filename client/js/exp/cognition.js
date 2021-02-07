@@ -236,11 +236,10 @@ class Cognition {
                         + "ms to find the result. Please submit it!");
                 },
                 mouseover: (e) => {
-                    console.log(this.engine.renderTime);
-                    alert("Timer starts! Please find the results! If you hover the bar accidentally, please" +
-                        "refresh the page.");
                     if (this.cognitionStart === 0) {
-                        this.engine.renderTime = Date.now();
+                        alert("Timer starts! Please find the results! If you hover the bar accidentally, please " +
+                            "refresh the page.");
+                        this.cognitionStart = Date.now();
                     }
                 }
             }
