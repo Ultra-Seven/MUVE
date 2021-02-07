@@ -34,6 +34,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * The demo servlet. Initialize an https server
+ * using Javalin.
+ *
+ * @author Ziyun Wei
+ */
 public class LuceneServlet {
     private static Map<WsContext, String> userUsernameMap = new ConcurrentHashMap<>();
     private static int nextUserNumber = 1;
@@ -73,7 +79,6 @@ public class LuceneServlet {
         props.setProperty("user", "monetdb");
         props.setProperty("password", "monetdb");
         connection = DriverManager.getConnection(url, props);
-
 
         app.post("/query", ctx -> {
             // some code

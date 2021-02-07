@@ -57,13 +57,17 @@ class Engine {
         };
     }
 
+    setCallback(callback) {
+        this.connector.sender.ws.onmessage = callback;
+    }
+
     simulate(sql) {
         const name = $('#datasets').val();
         const params = [name, sql, $("#viz").width(), $("#planner").val()];
         this.connector.send(params.join(";"));
     }
 
-    draw(query_results) {
+    draw(query_results, colors) {
         $("#viz").empty();
         $("#legend").empty();
         const charts = [];
@@ -110,12 +114,13 @@ class Engine {
             }
 
         });
-        const scales = charts[0].colorScales;
+        const scales = colors || charts[0].colorScales;
+
         _.each(scales, (color, idx) => {
             const id = "color_" + idx;
             $("#legend").append("<button class='ui button' id='" + id +"'></button>");
             $("#" + id).css("background-color", color);
-            $("#" + id).width("80px");
+            $("#" + id).width("10px");
             $("#" + id).height("30px");
         });
         $("#color_0").html("High").css('color', 'white').css("fontSize", 20);

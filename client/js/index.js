@@ -8,6 +8,7 @@ import Config from "./config";
 import Engine from "./engine/engine";
 import Study from "./exp/user_study";
 import Dob_Job from "./dataset/dob_job";
+import Cognition from "./exp/cognition";
 let name = "sample_311";
 recognition.lang = 'en-US';
 $("#btn-start-recording").click(() => {
@@ -80,6 +81,14 @@ else if (mode === "study") {
     $("#submit_results").click(() => {
         const results = $("#result-text").val();
         studyEngine.send(results);
+    });
+}
+else if (mode === "cognition") {
+    const cognitionEngine = new Cognition(urlParams, engine, config);
+    // Submit query results to the server
+    $("#submit_results").click(() => {
+        const results = $("#result-text").val();
+        cognitionEngine.send(results);
     });
 }
 else {

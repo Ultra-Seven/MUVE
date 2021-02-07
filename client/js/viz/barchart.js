@@ -18,10 +18,12 @@ class Barchart {
         let render_data = _.map(this.data, obj => {
             const element = obj["results"][key][0];
             const rank = Math.min(obj["rank"], nrGroups - 1);
+            const color = obj["simColor"] || this.colorScales[rank];
             return {
+                simRank: obj["simRank"],
                 y: type === "agg" ? parseInt(element) : obj["results"][key].length,
                 label: obj["label"],
-                color: this.colorScales[rank],
+                color: color,
                 click: (e) => {
                     this.engine.end = Date.now();
                     alert("Timer stops! Please submit your results");
@@ -35,9 +37,10 @@ class Barchart {
             }
         });
         render_data = _.sortBy(render_data, point => {
-            return point["label"];
+            return point["simRank"] || point["label"];
         });
-        const title = context + " \"" + groupby + "\"";
+        const title = context === "column" ?  "\"" + groupby + "\" = ?" :
+            "? = \"" + groupby + "\"";
         const fontColor = context === "value" ? "#8803a9" : "#774a00";
 
         $("#" + this.container).CanvasJSChart({
