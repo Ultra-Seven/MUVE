@@ -232,10 +232,13 @@ class Cognition {
                 color: color,
                 click: (e) => {
                     this.cognitionEnd = Date.now();
-                    alert("Timer stops! Please submit your results");
+                    alert("Timer stops! You spent " + (this.cognitionEnd - this.cognitionStart)
+                        + "ms to find the result. Please submit it!");
                 },
                 mouseover: (e) => {
                     console.log(this.engine.renderTime);
+                    alert("Timer starts! Please find the results! If you hover the bar accidentally, please" +
+                        "refresh the page.");
                     if (this.cognitionStart === 0) {
                         this.engine.renderTime = Date.now();
                     }
