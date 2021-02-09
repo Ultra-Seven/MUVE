@@ -117,6 +117,20 @@ public class LuceneServlet {
             ctx.result("Done!");
         });
 
+        app.post("/cognition", ctx -> {
+            String message = ctx.body();
+            String[] elements = message.split("[|]");
+            String sql = "INSERT INTO cognition_study VALUES('" + elements[0]
+                    + "', " + elements[1] + ", " + elements[2] + ", " + elements[3] + ", " + elements[4]
+                    + ", " + elements[5] +", " + elements[6]
+                    + ", " + elements[7] + ");";
+            System.out.println(sql + " " + message);
+            // Insert a row into database
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
+            ctx.result("Done!");
+        });
+
         app.ws("/lucene", ws -> {
             ws.onConnect(ctx -> {
                 String username = "User" + nextUserNumber++;

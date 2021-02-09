@@ -7,18 +7,16 @@ class Cognition {
     constructor(urlParams, engine, config) {
         $("#result_body").show();
         this.cognitionStart = 0;
-        const user = urlParams.get('user');
-        this.user = user;
+        this.cognitionEnd = 0;
+        this.user = urlParams.get('user');
         this.level = parseInt(urlParams.get('level'));
         this.position = parseInt(urlParams.get('position'));
         this.colorPos = parseInt(urlParams.get('colorPos'));
         this.nrQueries = parseInt(urlParams.get('nrQueries'));
-        this.nrPreds = parseInt(urlParams.get('nrPreds'));
         this.nrPlots = parseInt(urlParams.get('nrPlots'));
-        const integerQueries = Math.max(Math.floor(this.nrQueries / this.nrPreds), 1);
-        if (this.nrQueries / this.nrPreds !== integerQueries) {
-            this.nrQueries = integerQueries * this.nrPlots;
-        }
+        const integerQueries = Math.max(Math.floor(this.nrQueries / this.nrPlots), 1);
+        this.extraQueries = this.nrQueries - integerQueries * this.nrPlots;
+
         this.row = 2;
         // Color
         const colorGradient = new Gradient();
@@ -30,10 +28,8 @@ class Cognition {
         colorGradient.setMidpoint(this.nrQueries);
         this.colorGradient = colorGradient;
 
-
         $("#datasets").prop('disabled', 'disabled');
         $("#planner").prop("disabled", 'disabled');
-
 
         $("#btn-start-recording").hide();
         $("#btn-dev").html("Go back");
@@ -45,21 +41,22 @@ class Cognition {
         $("#spoken-text").css("color","black");
         $("#spoken-text").css('font-weight', 'bold');
 
-        this.draw(this.nrPreds, this.nrQueries);
+        this.draw(this.nrQueries);
 
         // Simulate click the submit button
         this.engine = engine;
         const params = {
             sender: "AJAX",
             callback: () => {
-                $("#btn-dev").click();
+                alert("You have finished the task!");
             },
-            url: config.host + "/study"
+            url: config.host + "/cognition"
         };
         this.querySender = new Connector(params);
+        this.createModal();
     }
 
-    draw(nrPredicates, nrQueries) {
+    draw(nrQueries) {
         $("#viz").empty();
         $("#legend").empty();
         // Build Queries
@@ -91,7 +88,7 @@ class Cognition {
         }
 
         const samplePlots = _.sample(plots, nrPlots);
-        const restPlots = _.difference(plots, samplePlots);
+        let restPlots = _.difference(plots, samplePlots);
         const firstRowPlots = Math.floor(nrPlots / this.row);
         const secondRowPlots = nrPlots - firstRowPlots;
         const nrFigures = [firstRowPlots, secondRowPlots];
@@ -110,6 +107,8 @@ class Cognition {
                 const barName = "bar_" + rowCtr + "_" + figureCtr;
                 const width = Math.floor(90.0 / nrFigs);
                 let data = samplePlots[start + figureCtr]["data"];
+                const lastPlot = (start + figureCtr) === (nrPlots - 1);
+                const currentNrQueries = lastPlot ? nrQueriesInPlot + this.extraQueries : nrQueriesInPlot;
                 $("#" + rowName).append(
                     "<div id='" + barName +
                     "' style='width: " + width + "%; height: 280px;display: inline-block;'></div>"
@@ -125,29 +124,31 @@ class Cognition {
                 // Target query is in the plot
                 let queryIndex;
                 const singlePlot = dataIDGroups[dataID].length === 1;
-                let inPlot = targetInPlot[dataID]["nrQueries"] !== 0 || singlePlot;
-                if (priorQueries <= this.position && priorQueries + nrQueriesInPlot > this.position) {
+                let inPlot = false;
+                if (priorQueries <= this.position && priorQueries + currentNrQueries > this.position) {
                     queryIndex = this.position - priorQueries;
                     inPlot = true;
                     targetIndex = queryIndex;
+                    this.targetValue = data[queryIndex]["y"];
                 }
                 else {
-                    queryIndex = _.random(0, nrQueriesInPlot);
+                    queryIndex = _.random(0, currentNrQueries);
                 }
                 const query = data[queryIndex];
                 // Delete the target query
                 if (!inPlot) {
                     data.splice(queryIndex, 1);
                 }
-                data = data.slice(0, nrQueriesInPlot);
+                data = data.slice(0, currentNrQueries);
                 samplePlots[start + figureCtr]["data"] = data;
                 targetInPlot[dataID][type] = query["label"];
 
                 if (singlePlot) {
                     const alternativePlot = _.find(restPlots, restPlot => restPlot["dataID"] === dataID);
                     const alterQuery = _.sample(alternativePlot["data"]);
-                    targetInPlot[dataID]["nrQueries"] += nrQueriesInPlot;
+                    targetInPlot[dataID]["nrQueries"] += currentNrQueries;
                     targetInPlot[dataID][alternativePlot["type"]] = alterQuery["label"];
+                    restPlots = _.without(restPlots, alternativePlot);
                 }
 
                 if (targetInPlot[dataID]["nrQueries"] > 0) {
@@ -155,11 +156,31 @@ class Cognition {
                         + targetInPlot[dataID]["value"] + "]";
                     predicates.push(predicate);
                 }
-                targetInPlot[dataID]["nrQueries"] += nrQueriesInPlot;
-                priorQueries += nrQueriesInPlot;
+                targetInPlot[dataID]["nrQueries"] += currentNrQueries;
+                priorQueries += currentNrQueries;
             }
             start += nrFigs;
         }
+
+        const fixedPlot = {};
+
+        // Add predicates from the rest plots
+        _.each(restPlots, restPlot => {
+            const dataID = restPlot["dataID"];
+            const sampleQuery = _.sample(restPlot["data"]);
+            if (!(dataID in fixedPlot)) {
+                fixedPlot[dataID] = {};
+                fixedPlot[dataID]["nrQueries"] = 0;
+            }
+            fixedPlot[dataID][restPlot["type"]] = sampleQuery["label"];
+            if (fixedPlot[dataID]["nrQueries"] > 0) {
+                const predicate = "\"" + fixedPlot[dataID]["column"] + "\" = ["
+                    + fixedPlot[dataID]["value"] + "]";
+                predicates.unshift(predicate);
+            }
+            fixedPlot[dataID]["nrQueries"]++;
+        });
+
 
         // Assign color ranks
         if (this.colorPos >= 0) {
@@ -184,6 +205,11 @@ class Cognition {
                 const dataID = plot["dataID"];
                 const type = plot["type"];
                 const titlePredicates = [];
+                _.each(_.keys(fixedPlot), plotDataID => {
+                    const predicate = "\"" + fixedPlot[plotDataID]["column"] + "\" = ["
+                        + fixedPlot[plotDataID]["value"] + "]";
+                    titlePredicates.push(predicate);
+                });
                 _.each(_.keys(targetInPlot), plotDataID => {
                     if (dataID !== plotDataID) {
                         const predicate = "\"" + targetInPlot[plotDataID]["column"] + "\" = ["
@@ -225,21 +251,19 @@ class Cognition {
     drawBarChart(container, plot) {
         let render_data = _.map(plot["data"], dataPoint => {
             const rank = dataPoint["rank"];
-            const color = rank ? this.colorGradient.getColor(rank + 1) : "#0000ff";
+            const color = rank !== undefined ? this.colorGradient.getColor(rank + 1) : "#0000ff";
+
             return {
                 y: dataPoint["y"],
                 label: dataPoint["label"],
                 color: color,
                 click: (e) => {
-                    this.cognitionEnd = Date.now();
-                    alert("Timer stops! You spent " + (this.cognitionEnd - this.cognitionStart)
-                        + "ms to find the result. Please submit it!");
-                },
-                mouseover: (e) => {
-                    if (this.cognitionStart === 0) {
-                        alert("Timer starts! Please find the results! If you hover the bar accidentally, please " +
-                            "refresh the page.");
-                        this.cognitionStart = Date.now();
+                    if (this.cognitionEnd === 0) {
+                        this.isMatch = this.targetValue === e["dataPoint"]["y"] ? 1 : 0;
+                        this.cognitionEnd = Date.now();
+                        alert("Timer stops! You spent " + (this.cognitionEnd - this.cognitionStart)
+                            + "ms to find the result. Please submit it! If you click the bar accidentally, " +
+                            "please refresh the page.");
                     }
                 }
             }
@@ -268,6 +292,56 @@ class Cognition {
         });
     }
 
+    createModal() {
+        const imagePath = this.colorPos >= 0 ? "/images/color.png" : "/images/overview.png";
+        $("#body").append(
+            `
+               <div class="ui large modal" id="target_query">
+                    <div class="header">
+                       Please find the bar that matches with the Text Query
+                    </div>
+                    <div class="image content">
+                        <div class="ui massive image">
+                          <img src="` + imagePath + `">
+                        </div>
+                        
+                    </div>
+                        
+                    <div>
+                        <div class="description" style="padding-left: 100px">
+                          <p>
+                                The example of multiplots is shown above.
+                                Please find the bar and associated plot that match with the text query. 
+                                When you find it, please click the bar to terminate the timer 
+                                and submit the value of bar in the top box!<br>
+                                <span style="font-size: 20px; font-weight: bold;">Target Text Query: </span>
+                                <span style="color:red; font-size: 20px; font-weight: bold;">`
+                                + $("#spoken-text").val() + `</span> <br>
+                                The goal of study is to evaluate the cognition time of visualizations. 
+                                So we hope you to read the text query before looking through plots. 
+                                When you are ready, please click the green button to start a timer.
+                          </p>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <div class="ui positive right labeled icon button" id="timer_start">
+                            Yep, go to plots
+                            <i class="checkmark icon"></i>
+                        </div>
+                    </div>
+               </div>
+            `);
+        $("#timer_start").click(() => {
+            if (this.cognitionStart === 0) {
+                alert("Timer starts! If you click the button accidentally, please " +
+                    "refresh the page.");
+                this.cognitionStart = Date.now();
+            }
+        });
+        $("#target_query")
+            .modal('show');
+    }
+
 
     generatePlots(nrQueriesInPlot) {
         // Human names
@@ -276,14 +350,14 @@ class Cognition {
             "professor", "doctor", "driver", "farmer", "manager",
             "nickname", "account", "father", "mother"];
         let name;
-        while(names.length < nrQueriesInPlot + 1) {
+        while(names.length < nrQueriesInPlot + 1 + this.extraQueries) {
             name = HumanNames.allRandom();
             while (_.contains(names, name)) {
                 name = HumanNames.allRandom();
             }
             names.push(name);
         }
-        const namesColumnsSample = _.sample(nameColumns, nrQueriesInPlot + 1);
+        const namesColumnsSample = _.sample(nameColumns, nrQueriesInPlot + 1 + this.extraQueries);
 
         // Cities
         const cities = ["NYC", "LA", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Antonio",
@@ -291,33 +365,38 @@ class Cognition {
         "Detroit", "Tucson", "Fresno", "Miami", "Henderson", "Plano", "Irvine", "Glendale", "Garland", "Syracuse"];
         const cityColumns = ["departure", "destination", "hometown",
             "city", "borough", "live", "travel", "birth", "location", "park", "visit", "place"];
-        const citiesSample = _.sample(cities, nrQueriesInPlot + 1);
-        const citiesColumnsSample = _.sample(cityColumns, nrQueriesInPlot + 1);
+        const citiesSample = _.sample(cities, nrQueriesInPlot + 1 + this.extraQueries);
+        const citiesColumnsSample = _.sample(cityColumns, nrQueriesInPlot + 1 + this.extraQueries);
 
         // Date
         const months = ["Jan", "Feb", "Mar", "Apr", "May", "June",
             "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
         const datesColumns = ["action", "paid", "filing",
             "assigned", "approved", "declined", "proposed", "month", "time", "admitted", "graduated", "hired"];
-        const monthsSample = _.sample(months, nrQueriesInPlot + 1);
-        const monthColumnsSample = _.sample(datesColumns, nrQueriesInPlot + 1);
+
+        const monthsSample = _.map(
+            _.sortBy(_.sample(_.range(months.length), nrQueriesInPlot + 1 + this.extraQueries)),
+                idx => months[idx]
+        );
+        const monthColumnsSample = _.sample(datesColumns, nrQueriesInPlot + 1 + this.extraQueries);
 
         return [
             {literals: _.sortBy(names), columns: _.sortBy(namesColumnsSample)},
             {literals: _.sortBy(citiesSample), columns: _.sortBy(citiesColumnsSample)},
-            {literals: _.sortBy(monthsSample), columns: _.sortBy(monthColumnsSample)}
+            {literals: monthsSample, columns: _.sortBy(monthColumnsSample)}
         ]
     }
 
     send(results) {
         const respond = this.cognitionEnd - this.cognitionStart;
-        if (isNaN(respond)) {
+        console.log("isMatch: " + this.isMatch);
+        if (isNaN(respond) || this.cognitionEnd === 0) {
             return;
         }
         const message = [this.user, this.level, this.position,
             this.colorPos, this.nrQueries,
             this.nrPlots,
-            respond, results];
+            respond, this.isMatch];
         this.querySender.send(message.join("|"));
     }
 }
