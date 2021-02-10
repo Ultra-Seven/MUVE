@@ -236,6 +236,7 @@ class Cognition {
             + targetFreeTitleObj["value"] + "]";
         freePredicates.push(targetFreePred);
 
+        const charts = [];
         for (let rowCtr = 0; rowCtr < this.row; rowCtr++) {
             const nrFigs = nrFigures[rowCtr];
             for (let figureCtr = 0; figureCtr < nrFigs; figureCtr++) {
@@ -302,7 +303,9 @@ class Cognition {
                 })
 
                 plot["title"] = sortedTitlePredicates.join(" and ");
-                this.drawBarChart(barName, plot);
+                // this.drawBarChart(barName, plot);
+                const chart = this.drawUsingChartJS(barName, plot)
+                charts.push(chart);
             }
             start += nrFigs;
         }
@@ -322,7 +325,7 @@ class Cognition {
                 document.getElementById(colorID).style.width = width + '%';
                 $("#" + colorID).height("30px");
                 $("#" + colorID).mouseover(() => {
-                    alert("here")
+                    this.highlightBar(charts, idx);
                 });
             });
             $("#color_0").html("High").css('color', 'white').css("fontSize", 14);
@@ -332,8 +335,91 @@ class Cognition {
         $('.canvasjs-chart-credit').remove();
     }
 
+    hexToRgbA(hex, alpha){
+        let c;
+        if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+            c= hex.substring(1).split('');
+            if(c.length === 3){
+                c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+            }
+            c = '0x'+c.join('');
+            return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',') + ',' + alpha + ')';
+        }
+        throw new Error('Bad Hex');
+    }
+
     drawUsingChartJS(container, plot) {
-        
+        $("#" + container).append("<canvas id='canvas_" + container + "'></canvas>");
+        const ctx = document.getElementById('canvas_' + container).getContext('2d');
+        const data = {
+            labels: _.map(plot["data"], dataPoint => dataPoint["label"]),
+            datasets: [
+                {
+                    data: _.map(plot["data"], dataPoint => dataPoint["y"]),
+                    backgroundColor: _.map(plot["data"], dataPoint => {
+                        const rank = dataPoint["rank"];
+                        const color = rank !== undefined ? this.colorGradient.getColor(rank + 1) : "#0000ff";
+                        return this.hexToRgbA(color, 1);
+                    }),
+                    rank: _.map(plot["data"], dataPoint => dataPoint["rank"])
+                },
+            ]
+        };
+        const that = this;
+        const options = {
+            scales: {
+                yAxes: [{
+                    display: true,
+                    stacked: true,
+                    ticks: {
+                        min: 40, // minimum value
+                        max: 100 // maximum value
+                    }
+                }]
+            },
+            title: {
+                display: true,
+                fontSize: 20,
+                text: plot["title"]
+            },
+            legend: {
+                display: false
+            },
+            onClick: function(evt) {
+                if (that.cognitionEnd === 0) {
+                    const activePoints = this.getElementsAtEvent(evt);
+                    const chartData = activePoints[0]['_chart'].config.data;
+                    const idx = activePoints[0]['_index'];
+
+                    const value = chartData.datasets[0].data[idx];
+                    that.isMatch = that.targetValue === value ? 1 : 0;
+                    that.cognitionEnd = Date.now();
+                    console.log("Matched: " + that.isMatch + ", Time: " + (that.cognitionEnd - that.cognitionStart));
+                    that.user = prompt("Timer stops! Please enter your worker id:", "worker");
+                }
+            }
+        };
+        return new Chart(ctx, {
+            type: 'bar',
+            data: data,
+            options: options
+        });
+    }
+
+    highlightBar(charts, targetRank) {
+        // this clears off any tooltip highlights
+        _.each(charts, barchart => {
+            // reset any coloring because of selection
+            barchart.data.datasets.forEach( (dataset) => {
+                dataset.backgroundColor = _.map(dataset.backgroundColor, (color, idx) => {
+                    const rank = dataset.rank[idx];
+                    const newColor = rank !== undefined ? this.colorGradient.getColor(rank + 1) : "#0000ff";
+                    const alpha = targetRank === rank ? 1 : 0.3;
+                    return this.hexToRgbA(newColor, alpha);
+                });
+            });
+            barchart.update();
+        });
     }
 
 
