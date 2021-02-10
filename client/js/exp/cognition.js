@@ -327,6 +327,20 @@ class Cognition {
                 $("#" + colorID).mouseover(() => {
                     this.highlightBar(charts, idx);
                 });
+                $("#" + colorID).mouseout(() => {
+                    _.each(charts, barchart => {
+                        let targetIndex = -1;
+                        // reset any coloring because of selection
+                        barchart.data.datasets.forEach( (dataset) => {
+                            dataset.backgroundColor = _.map(dataset.backgroundColor, (color, idx) => {
+                                const rank = dataset.rank[idx];
+                                const newColor = rank !== undefined ? this.colorGradient.getColor(rank + 1) : "#0000ff";
+                                return this.hexToRgbA(newColor, 1);
+                            });
+                        });
+                        barchart.update();
+                    });
+                });
             });
             $("#color_0").html("High").css('color', 'white').css("fontSize", 14);
             $("#color_" + (scales.length - 1)).html("Low").css('color', 'white').css("fontSize", 14);
@@ -399,6 +413,17 @@ class Cognition {
                     that.user = prompt("Timer stops! Please enter your worker id:", "worker");
                     that.send();
                 }
+            },
+            tooltips: {
+                callbacks: {
+                    label: (tooltipItem) => {
+                        const label = tooltipItem["label"];
+                        const title = plot["title"];
+                        return title.replace("?", label);
+                    },
+                    title: () => {}
+                },
+                displayColors: false
             }
         };
         return new Chart(ctx, {
@@ -408,19 +433,33 @@ class Cognition {
         });
     }
 
+    showTooltip(chart, index) {
+        const segment = chart.getDatasetMeta(0).data[index];
+        chart.tooltip._active = [segment];
+        chart.tooltip.update();
+        chart.draw();
+    }
+
     highlightBar(charts, targetRank) {
         // this clears off any tooltip highlights
         _.each(charts, barchart => {
+            let targetIndex = -1;
             // reset any coloring because of selection
             barchart.data.datasets.forEach( (dataset) => {
                 dataset.backgroundColor = _.map(dataset.backgroundColor, (color, idx) => {
                     const rank = dataset.rank[idx];
                     const newColor = rank !== undefined ? this.colorGradient.getColor(rank + 1) : "#0000ff";
                     const alpha = targetRank === rank ? 1 : 0.3;
+                    if (targetRank === rank) {
+                        targetIndex = idx;
+                    }
                     return this.hexToRgbA(newColor, alpha);
                 });
             });
             barchart.update();
+            if (targetIndex >= 0) {
+                this.showTooltip(barchart, targetIndex);
+            }
         });
     }
 
