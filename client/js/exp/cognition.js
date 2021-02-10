@@ -199,13 +199,13 @@ class Cognition {
         });
 
         const dataIDOrder = {};
-        _.each(targetInPlot, (plotObj, dataID) => {
+        _.each(_.keys(targetInPlot), (dataID) => {
             if (targetInPlot[dataID]["nrQueries"] > 0) {
                 const predicate = "\"" + targetInPlot[dataID]["column"][0] + "\" = ["
                     + targetInPlot[dataID]["value"][0] + "]";
-                predicates.push(predicate);
-                const curLen = _.keys(dataIDOrder).length;
+                const curLen = predicates.length;
                 dataIDOrder[dataID] = curLen;
+                predicates.push(predicate);
             }
         });
 
