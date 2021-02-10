@@ -199,15 +199,16 @@ class Cognition {
         });
 
         const dataIDOrder = {};
-        _.each(_.keys(targetInPlot), (dataID) => {
-            if (targetInPlot[dataID]["nrQueries"] > 0) {
-                const predicate = "\"" + targetInPlot[dataID]["column"][0] + "\" = ["
-                    + targetInPlot[dataID]["value"][0] + "]";
-                const curLen = predicates.length;
-                dataIDOrder[dataID] = curLen;
+
+        for(let dataIDCtr in targetInPlot) {
+            if (targetInPlot[dataIDCtr]["nrQueries"] > 0) {
+                const predicate = "\"" + targetInPlot[dataIDCtr]["column"][0] + "\" = ["
+                    + targetInPlot[dataIDCtr]["value"][0] + "]";
+                dataIDOrder[dataIDCtr] = predicates.length;
                 predicates.push(predicate);
             }
-        });
+        }
+        
 
         // Assign color ranks
         if (this.colorPos >= 0) {
