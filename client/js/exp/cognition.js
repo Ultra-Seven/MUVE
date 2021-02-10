@@ -208,7 +208,7 @@ class Cognition {
                 predicates.push(predicate);
             }
         }
-        
+
 
         // Assign color ranks
         if (this.colorPos >= 0) {
@@ -547,8 +547,7 @@ class Cognition {
             .modal({
                 onHide: () => {
                     if (this.cognitionStart === 0) {
-                        alert("Timer starts! If you click the button accidentally, please " +
-                            "refresh the page.");
+                        alert("Timer starts after clicking OK!");
                         this.cognitionStart = Date.now();
                     }
                 },
