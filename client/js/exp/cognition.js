@@ -367,6 +367,7 @@ class Cognition {
         };
         const that = this;
         const options = {
+            maintainAspectRatio: false,
             scales: {
                 yAxes: [{
                     display: true,
