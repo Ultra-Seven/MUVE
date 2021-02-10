@@ -5,7 +5,8 @@ import HumanNames from "human-names";
 
 class Cognition {
     constructor(urlParams, engine, config) {
-        $("#result_body").show();
+        $("#information").hide();
+        document.getElementById('recording').style.width = '90%';
         this.cognitionStart = 0;
         this.cognitionEnd = 0;
         this.user = urlParams.get('user');
@@ -14,6 +15,7 @@ class Cognition {
         this.colorPos = parseInt(urlParams.get('colorPos'));
         this.nrQueries = parseInt(urlParams.get('nrQueries'));
         this.nrPlots = parseInt(urlParams.get('nrPlots'));
+        this.nrPreds = parseInt(urlParams.get('nrPreds') || "2");
         const integerQueries = Math.max(Math.floor(this.nrQueries / this.nrPlots), 1);
         this.extraQueries = this.nrQueries - integerQueries * this.nrPlots;
 
@@ -32,10 +34,7 @@ class Cognition {
         $("#planner").prop("disabled", 'disabled');
 
         $("#btn-start-recording").hide();
-        $("#btn-dev").html("Go back");
-        $("#btn-dev").click(() => {
-            window.history.back();
-        });
+        $("#btn-dev").hide();
         $("#btn-submit").hide();
         $("#spoken-text").prop("disabled", true);
         $("#spoken-text").css("color","black");
@@ -62,9 +61,10 @@ class Cognition {
         // Build Queries
         const nrPlots = this.nrPlots;
         const nrQueriesInPlot = Math.floor(nrQueries / nrPlots);
-        const plotsList = this.generatePlots(nrQueriesInPlot);
+        const plotsList = _.sample(this.generatePlots(nrQueriesInPlot), this.nrPreds);
 
         const plots = [];
+
         // Initialize all plots
         for (let plotCtr = 0; plotCtr < plotsList.length; plotCtr++) {
             const columnPlot = {};
@@ -86,6 +86,17 @@ class Cognition {
             plots.push(columnPlot);
             plots.push(literalPlot);
         }
+        // New plots
+        for (let plotCtr = plotsList.length * 2; plotCtr < nrPlots; plotCtr++) {
+            const samplePlot = _.sample(plots);
+            const newPlot = {};
+            newPlot["data"] = _.map(samplePlot["data"], dataPoint => {
+                return {label: dataPoint["label"], y: _.random(50, 100)}
+            });
+            newPlot["dataID"] = samplePlot["dataID"];
+            newPlot["type"] = samplePlot["type"];
+            plots.push(newPlot);
+        }
 
         const samplePlots = _.sample(plots, nrPlots);
         let restPlots = _.difference(plots, samplePlots);
@@ -98,6 +109,7 @@ class Cognition {
         const predicates = [];
         const targetInPlot = {};
         let targetIndex;
+        let targetPlotIndex;
         const dataIDGroups = _.groupBy(samplePlots, plot => plot["dataID"]);
         for (let rowCtr = 0; rowCtr < this.row; rowCtr++) {
             const rowName = "row_" + rowCtr;
@@ -113,12 +125,15 @@ class Cognition {
                     "<div id='" + barName +
                     "' style='width: " + width + "%; height: 280px;display: inline-block;'></div>"
                 );
+
                 // Generate predicate
                 const dataID = samplePlots[start + figureCtr]["dataID"];
                 const type = samplePlots[start + figureCtr]["type"];
                 if (!(dataID in targetInPlot)) {
                     targetInPlot[dataID] = {};
                     targetInPlot[dataID]["nrQueries"] = 0;
+                    targetInPlot[dataID]["column"] = [];
+                    targetInPlot[dataID]["value"] = [];
                 }
 
                 // Target query is in the plot
@@ -130,32 +145,34 @@ class Cognition {
                     inPlot = true;
                     targetIndex = queryIndex;
                     this.targetValue = data[queryIndex]["y"];
+                    targetPlotIndex = start + figureCtr;
                 }
                 else {
-                    queryIndex = _.random(0, currentNrQueries);
+                    queryIndex = _.random(0, data.length - 1);
                 }
                 const query = data[queryIndex];
+                console.log("Plot: " + JSON.stringify(query));
+
                 // Delete the target query
                 if (!inPlot) {
                     data.splice(queryIndex, 1);
+                    targetInPlot[dataID][type].push(query["label"]);
+                }
+                else {
+                    targetInPlot[dataID][type].unshift(query["label"]);
                 }
                 data = data.slice(0, currentNrQueries);
                 samplePlots[start + figureCtr]["data"] = data;
-                targetInPlot[dataID][type] = query["label"];
 
+                // Single Plot
                 if (singlePlot) {
                     const alternativePlot = _.find(restPlots, restPlot => restPlot["dataID"] === dataID);
                     const alterQuery = _.sample(alternativePlot["data"]);
                     targetInPlot[dataID]["nrQueries"] += currentNrQueries;
-                    targetInPlot[dataID][alternativePlot["type"]] = alterQuery["label"];
+                    targetInPlot[dataID][alternativePlot["type"]].push(alterQuery["label"]);
                     restPlots = _.without(restPlots, alternativePlot);
                 }
 
-                if (targetInPlot[dataID]["nrQueries"] > 0) {
-                    const predicate = "\"" + targetInPlot[dataID]["column"] + "\" = ["
-                        + targetInPlot[dataID]["value"] + "]";
-                    predicates.push(predicate);
-                }
                 targetInPlot[dataID]["nrQueries"] += currentNrQueries;
                 priorQueries += currentNrQueries;
             }
@@ -181,6 +198,16 @@ class Cognition {
             fixedPlot[dataID]["nrQueries"]++;
         });
 
+        const dataIDOrder = {};
+        _.each(targetInPlot, (plotObj, dataID) => {
+            if (targetInPlot[dataID]["nrQueries"] > 0) {
+                const predicate = "\"" + targetInPlot[dataID]["column"][0] + "\" = ["
+                    + targetInPlot[dataID]["value"][0] + "]";
+                predicates.push(predicate);
+                const curLen = _.keys(dataIDOrder).length;
+                dataIDOrder[dataID] = curLen;
+            }
+        });
 
         // Assign color ranks
         if (this.colorPos >= 0) {
@@ -197,6 +224,18 @@ class Cognition {
         }
 
         start = 0;
+        const freePredicates = [];
+        // Target Plot
+        const targetDataID = samplePlots[targetPlotIndex]["dataID"];
+        const targetType = samplePlots[targetPlotIndex]["type"];
+        const targetFreeColumn = targetInPlot[targetDataID]["column"][0];
+        const targetFreeValue = targetInPlot[targetDataID]["value"][0];
+        const targetFreeTitleObj = {column: targetFreeColumn, value: targetFreeValue};
+        targetFreeTitleObj[targetType] = "?";
+        const targetFreePred = "\"" + targetFreeTitleObj["column"] + "\" = ["
+            + targetFreeTitleObj["value"] + "]";
+        freePredicates.push(targetFreePred);
+
         for (let rowCtr = 0; rowCtr < this.row; rowCtr++) {
             const nrFigs = nrFigures[rowCtr];
             for (let figureCtr = 0; figureCtr < nrFigs; figureCtr++) {
@@ -205,23 +244,64 @@ class Cognition {
                 const dataID = plot["dataID"];
                 const type = plot["type"];
                 const titlePredicates = [];
+                const predToID = {}
                 _.each(_.keys(fixedPlot), plotDataID => {
                     const predicate = "\"" + fixedPlot[plotDataID]["column"] + "\" = ["
                         + fixedPlot[plotDataID]["value"] + "]";
                     titlePredicates.push(predicate);
+                    predToID[predicate] = plotDataID;
                 });
                 _.each(_.keys(targetInPlot), plotDataID => {
                     if (dataID !== plotDataID) {
-                        const predicate = "\"" + targetInPlot[plotDataID]["column"] + "\" = ["
-                            + targetInPlot[plotDataID]["value"] + "]";
+                        const predicate = "\"" + targetInPlot[plotDataID]["column"][0] + "\" = ["
+                            + targetInPlot[plotDataID]["value"][0] + "]";
                         titlePredicates.push(predicate);
+                        predToID[predicate] = plotDataID;
                     }
                 });
-                const freeTitle = {column: targetInPlot[dataID]["column"], value: targetInPlot[dataID]["value"]};
-                freeTitle[type] = "?";
-                titlePredicates.push("\"" + freeTitle["column"] + "\" = ["
-                    + freeTitle["value"] + "]");
-                plot["title"] = titlePredicates.join(" and ");
+
+                if ((start + figureCtr) === targetPlotIndex) {
+                    titlePredicates.push(targetFreePred);
+                    predToID[targetFreePred] = targetDataID;
+                }
+                else {
+                    const freeColumn = targetInPlot[dataID]["column"][0];
+                    const freeValue = targetInPlot[dataID]["value"][0];
+                    const freeTitleObj = {column: freeColumn, value: freeValue};
+                    freeTitleObj[type] = "?";
+                    const freePred = "\"" + freeTitleObj["column"] + "\" = ["
+                        + freeTitleObj["value"] + "]";
+                    if (_.contains(freePredicates, freePred)) {
+                        const alternativeType = type === "column" ? "value" : "column";
+                        const alternativeGroup = type === "column" ? "literals" : "columns";
+                        freeTitleObj[alternativeType] = _.find(plotsList[parseInt(dataID)][alternativeGroup],
+                            item => {
+                                const newTitleObj = {};
+                                newTitleObj[alternativeType] = item;
+                                newTitleObj[type] = "?";
+                                const newPredicate = "\"" + newTitleObj["column"] + "\" = ["
+                                    + newTitleObj["value"] + "]";
+                                return !_.contains(freePredicates, newPredicate);
+                            });
+                        const newPredicate = "\"" + freeTitleObj["column"] + "\" = ["
+                            + freeTitleObj["value"] + "]";
+                        titlePredicates.push(newPredicate);
+                        freePredicates.push(newPredicate);
+                        predToID[newPredicate] = dataID;
+                    }
+                    else {
+                        titlePredicates.push(freePred);
+                        freePredicates.push(freePred);
+                        predToID[freePred] = dataID;
+                    }
+                }
+                // Sort predicates
+                const sortedTitlePredicates = _.sortBy(titlePredicates, pred => {
+                    const predDataID = predToID[pred];
+                    return dataIDOrder[predDataID];
+                })
+
+                plot["title"] = sortedTitlePredicates.join(" and ");
                 this.drawBarChart(barName, plot);
             }
             start += nrFigs;
@@ -234,12 +314,16 @@ class Cognition {
         if (this.colorPos >= 0) {
             const scales = this.colorGradient.getArray();
             const width = Math.floor(90.0 / this.nrQueries);
+            document.getElementById("legend").style.width = '90%';
             _.each(scales, (color, idx) => {
-                const id = "color_" + idx;
-                $("#legend").append("<button class='ui button' id='" + id +"'></button>");
-                $("#" + id).css("background-color", color);
-                $("#" + id).width("10px");
-                $("#" + id).height("30px");
+                const colorID = "color_" + idx;
+                $("#legend").append("<button class='ui button' id='" + colorID +"'></button>");
+                $("#" + colorID).css("background-color", color);
+                document.getElementById(colorID).style.width = width + '%';
+                $("#" + colorID).height("30px");
+                $("#" + colorID).mouseover(() => {
+                    alert("here")
+                });
             });
             $("#color_0").html("High").css('color', 'white').css("fontSize", 14);
             $("#color_" + (scales.length - 1)).html("Low").css('color', 'white').css("fontSize", 14);
@@ -248,11 +332,15 @@ class Cognition {
         $('.canvasjs-chart-credit').remove();
     }
 
+    drawUsingChartJS(container, plot) {
+        
+    }
+
+
     drawBarChart(container, plot) {
         let render_data = _.map(plot["data"], dataPoint => {
             const rank = dataPoint["rank"];
             const color = rank !== undefined ? this.colorGradient.getColor(rank + 1) : "#0000ff";
-
             return {
                 y: dataPoint["y"],
                 label: dataPoint["label"],
@@ -261,9 +349,7 @@ class Cognition {
                     if (this.cognitionEnd === 0) {
                         this.isMatch = this.targetValue === e["dataPoint"]["y"] ? 1 : 0;
                         this.cognitionEnd = Date.now();
-                        alert("Timer stops! You spent " + (this.cognitionEnd - this.cognitionStart)
-                            + "ms to find the result. Please submit it! If you click the bar accidentally, " +
-                            "please refresh the page.");
+                        this.user = prompt("Timer stops! Please enter your worker id:", "worker");
                     }
                 }
             }
@@ -289,6 +375,10 @@ class Cognition {
                 labelMaxWidth: 100,
                 interval: 1
             },
+            axisY:{
+                minimum: 40,
+                maximum: 100
+            }
         });
     }
 
