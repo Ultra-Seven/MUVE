@@ -123,7 +123,7 @@ class Cognition {
                 const currentNrQueries = lastPlot ? nrQueriesInPlot + this.extraQueries : nrQueriesInPlot;
                 $("#" + rowName).append(
                     "<div id='" + barName +
-                    "' style='width: " + width + "%; height: 280px;display: inline-block;'></div>"
+                    "' style='width: " + width + "%; height: 250px;display: inline-block;'></div>"
                 );
 
                 // Generate predicate
@@ -397,6 +397,7 @@ class Cognition {
                     that.cognitionEnd = Date.now();
                     console.log("Matched: " + that.isMatch + ", Time: " + (that.cognitionEnd - that.cognitionStart));
                     that.user = prompt("Timer stops! Please enter your worker id:", "worker");
+                    that.send();
                 }
             }
         };
@@ -471,34 +472,28 @@ class Cognition {
 
     createModal() {
         const imagePath = this.colorPos >= 0 ? "/images/color.png" : "/images/overview.png";
+        const suggestHovering = this.colorPos < 0 ? "" : ("Bars of left colors are more likely to match with the target query. " +
+            "You can hover on the color gradiant to highlight bars with the selected color.<br>");
         $("#body").append(
             `
                <div class="ui large modal" id="target_query">
                     <div class="header">
-                       Please find the bar that matches with the Text Query
+                       Find the Target Query: <span style="color:red; font-size: 20px; font-weight: bold;">`
+                                + $("#spoken-text").val() + `</span> <br>
+                    </div>
+                    <div>
+                        <div class="description" style="padding-left: 100px; padding-top: 20px">
+                          <p>
+                          ` + suggestHovering + `
+                                One example is shown below:
+                          </p>
+                        </div>
                     </div>
                     <div class="image content">
                         <div class="ui massive image">
                           <img src="` + imagePath + `">
                         </div>
                         
-                    </div>
-                        
-                    <div>
-                        <div class="description" style="padding-left: 100px">
-                          <p>
-                                The example of multiplots is shown above.
-                                Please find the bar and associated plot that match with the text query. 
-                                When you find it, please click the bar to terminate the timer 
-                                and submit the value of bar in the top box!<br>
-                                <span style="font-size: 20px; font-weight: bold;">Target Text Query: </span>
-                                <span style="color:red; font-size: 20px; font-weight: bold;">`
-                                + $("#spoken-text").val() + `</span> <br>
-                                The goal of study is to evaluate the cognition time of visualizations. 
-                                So we hope you to read the text query before looking through plots. 
-                                When you are ready, please click the green button to start a timer.
-                          </p>
-                        </div>
                     </div>
                     <div class="actions">
                         <div class="ui positive right labeled icon button" id="timer_start">
@@ -508,15 +503,16 @@ class Cognition {
                     </div>
                </div>
             `);
-        $("#timer_start").click(() => {
-            if (this.cognitionStart === 0) {
-                alert("Timer starts! If you click the button accidentally, please " +
-                    "refresh the page.");
-                this.cognitionStart = Date.now();
-            }
-        });
         $("#target_query")
-            .modal('show');
+            .modal({
+                onHide: () => {
+                    if (this.cognitionStart === 0) {
+                        alert("Timer starts! If you click the button accidentally, please " +
+                            "refresh the page.");
+                        this.cognitionStart = Date.now();
+                    }
+                },
+            }).modal("show");
     }
 
 
@@ -564,9 +560,8 @@ class Cognition {
         ]
     }
 
-    send(results) {
+    send() {
         const respond = this.cognitionEnd - this.cognitionStart;
-        console.log("isMatch: " + this.isMatch);
         if (isNaN(respond) || this.cognitionEnd === 0) {
             return;
         }

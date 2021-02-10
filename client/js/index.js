@@ -85,11 +85,6 @@ else if (mode === "study") {
 }
 else if (mode === "cognition") {
     const cognitionEngine = new Cognition(urlParams, engine, config);
-    // Submit query results to the server
-    $("#submit_results").click(() => {
-        const results = $("#result-text").val();
-        cognitionEngine.send(results);
-    });
 }
 else {
     // Empty string
