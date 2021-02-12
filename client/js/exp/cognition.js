@@ -16,6 +16,8 @@ class Cognition {
         this.nrQueries = parseInt(urlParams.get('nrQueries'));
         this.nrPlots = parseInt(urlParams.get('nrPlots'));
         this.nrPreds = parseInt(urlParams.get('nrPreds') || "2");
+        this.nrTops = parseInt(urlParams.get('nrTops') || "1");
+        this.nrGradients = parseInt(urlParams.get('nrGradients') || (this.nrQueries + ""));
         const integerQueries = Math.max(Math.floor(this.nrQueries / this.nrPlots), 1);
         this.extraQueries = this.nrQueries - integerQueries * this.nrPlots;
 
@@ -27,7 +29,7 @@ class Cognition {
         const color3 = "#edc988";
         const color4 = "#607D8B";
         colorGradient.setGradient(color1, color2, color3, color4);
-        colorGradient.setMidpoint(this.nrQueries);
+        colorGradient.setMidpoint(this.nrGradients);
         this.colorGradient = colorGradient;
 
         $("#datasets").prop('disabled', 'disabled');
@@ -213,13 +215,19 @@ class Cognition {
         // Assign color ranks
         if (this.colorPos >= 0) {
             const ranks = _.shuffle(_.range(0, nrQueries, 1));
+            const largestColor = this.nrGradients - 1;
             const pos = _.indexOf(ranks, this.colorPos);
             const targetRank = ranks[this.position];
             ranks[this.position] = this.colorPos;
             ranks[pos] = targetRank;
+
+            const colorIndexes = _.sortBy(_.range(0, nrQueries, 1), idx => ranks[idx]);
+            for (let rankCtr = 0; rankCtr < this.nrTops; rankCtr++) {
+                ranks[colorIndexes[rankCtr]] = 0;
+            }
             _.each(samplePlots, (plot, idx) => {
                 _.each(plot["data"], (dataPoint, qid) => {
-                    dataPoint["rank"] = ranks[idx * nrQueriesInPlot + qid];
+                    dataPoint["rank"] = Math.min(largestColor, ranks[idx * nrQueriesInPlot + qid]);
                 });
             });
         }
@@ -317,7 +325,7 @@ class Cognition {
         // Color gradients
         if (this.colorPos >= 0) {
             const scales = this.colorGradient.getArray();
-            const width = Math.floor(90.0 / this.nrQueries);
+            const width = Math.floor(90.0 / this.nrGradients);
             document.getElementById("legend").style.width = '90%';
             _.each(scales, (color, idx) => {
                 const colorID = "color_" + idx;
