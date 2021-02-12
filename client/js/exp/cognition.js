@@ -183,6 +183,7 @@ class Cognition {
 
         const fixedPlot = {};
 
+        const dataIDOrder = {};
         // Add predicates from the rest plots
         _.each(restPlots, restPlot => {
             const dataID = restPlot["dataID"];
@@ -195,12 +196,12 @@ class Cognition {
             if (fixedPlot[dataID]["nrQueries"] > 0) {
                 const predicate = "\"" + fixedPlot[dataID]["column"] + "\" = ["
                     + fixedPlot[dataID]["value"] + "]";
+                dataIDOrder[dataID] = predicates.length;
                 predicates.unshift(predicate);
             }
             fixedPlot[dataID]["nrQueries"]++;
         });
 
-        const dataIDOrder = {};
 
         for(let dataIDCtr in targetInPlot) {
             if (targetInPlot[dataIDCtr]["nrQueries"] > 0) {
