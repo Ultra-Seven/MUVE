@@ -120,10 +120,10 @@ public class LuceneServlet {
         app.post("/cognition", ctx -> {
             String message = ctx.body();
             String[] elements = message.split("[|]");
-            String sql = "INSERT INTO cognition_study VALUES('" + elements[0]
+            String sql = "INSERT INTO cognition_survey VALUES('" + elements[0]
                     + "', " + elements[1] + ", " + elements[2] + ", " + elements[3] + ", " + elements[4]
                     + ", " + elements[5] +", " + elements[6]
-                    + ", " + elements[7] + ");";
+                    + ", " + elements[7] + ", " + elements[8] + ");";
             System.out.println(sql + " " + message);
             // Insert a row into database
             Statement statement = connection.createStatement();

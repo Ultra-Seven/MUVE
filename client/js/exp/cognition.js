@@ -615,7 +615,7 @@ class Cognition {
         }
         const message = [this.user, this.level, this.position,
             this.colorPos, this.nrQueries,
-            this.nrPlots,
+            this.nrPlots, this.nrTops,
             respond, this.isMatch];
         this.querySender.send(message.join("|"));
     }
