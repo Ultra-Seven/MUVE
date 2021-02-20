@@ -47,7 +47,11 @@ public class PlanConfig {
      */
     public static final int READ_DATA = 10;
     /**
-     * The significance of processing time in objective function
+     * The significance of processing time in objective function.
      */
-    public static final double Processing_WEIGHT = 0.5;
+    public static final double PROCESSING_WEIGHT = 0.5;
+    /**
+     * The penalty time when the query is absent in the screen.
+     */
+    public static final int PENALTY_TIME = 10000;
 }

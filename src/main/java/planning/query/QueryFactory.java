@@ -107,9 +107,9 @@ public class QueryFactory {
         parseQueryTemplate(query);
         this.nrDims = replaceIndex.size();
         this.termToKey = new HashMap[nrDims];
-        this.keyToTerms = new String[nrDims][PlanConfig.TOPK];
+        this.keyToTerms = new String[nrDims][PlanConfig.TOPK+1];
         for (int setCtr = 0; setCtr < nrDims; setCtr++) {
-            termToKey[setCtr] = new HashMap<>(PlanConfig.TOPK);
+            termToKey[setCtr] = new HashMap<>(PlanConfig.TOPK+1);
         }
         int nrValues = valueIndex.size();
         List<ScoreDoc[]> scoreDocs = new ArrayList<>(nrValues);
@@ -117,7 +117,9 @@ public class QueryFactory {
         for (int valuePos : valueIndex) {
             String value = terms.get(replaceIndex.get(valuePos));
             ScoreDoc[] docs = FuzzySearch.search(value, dataset);
-            maxQueries *= docs.length;
+            if (maxQueries < PlanConfig.TOPK) {
+                maxQueries *= docs.length;
+            }
             scoreDocs.add(docs);
         }
 
@@ -170,7 +172,7 @@ public class QueryFactory {
                 keyToTerms[joinColumnPos][vector[joinColumnPos]] = columnName;
             }
 
-            queries[queryCtr] = new DataPoint(vector, score);
+            queries[queryCtr] = new DataPoint(vector, score, queryCtr);
             sum += score;
             // Find the next pivot
             if (maxNextPivot != -1) {

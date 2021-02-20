@@ -58,6 +58,7 @@ public class FuzzySearch {
         }
         // Reorder the documents by similarity
         String finalPhonetic = phoneticEncoder(query_str);
+        int toIndex = Math.min(PlanConfig.TOPK, idToDocs.size());
         hits = idToDocs.values().stream().sorted((doc1, doc2) -> {
             try {
                 Document hitDoc1 = searcher.doc(doc1.doc);
@@ -83,7 +84,7 @@ public class FuzzySearch {
                 e.printStackTrace();
             }
             return 0;
-        }).collect(Collectors.toList()).subList(0, PlanConfig.TOPK).toArray(new ScoreDoc[0]);
+        }).collect(Collectors.toList()).subList(0, toIndex).toArray(new ScoreDoc[0]);
         return hits;
     }
 

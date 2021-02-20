@@ -38,6 +38,11 @@ public class Plot {
      * by OR.
      */
     public double cost = 0;
+    /**
+     * The probability of plot that is calculated by accumulating
+     * probabilities over all queries in the plot.
+     */
+    public double probability = 0;
 
     /**
      * Initialize an instance of plot
@@ -59,14 +64,34 @@ public class Plot {
     public void addDataPoint(DataPoint dataPoint) {
         this.dataPoints.add(dataPoint);
         nrDataPoints++;
+        probability += dataPoint.probability;
+    }
+
+    /**
+     * Sort the data points by decreasing order of probability.
+     */
+    public void sortByProbability() {
+        dataPoints.sort((dataPoint1, dataPoint2) ->
+                Double.compare(dataPoint2.probability, dataPoint1.probability));
     }
     /**
      * Set the constant intercept of cost
      * when queries of plot are executed.
      *
-     * @param cost      constant cost of the plot
+     * @param cost          constant cost of the plot
      */
     public void setCost(double cost) {
         this.cost = cost;
+    }
+
+    /**
+     * Remove the data point from the plot.
+     *
+     * @param dataPoint     data point to be removed
+     */
+    public void removeDataPoint(DataPoint dataPoint) {
+        int decrease = dataPoints.remove(dataPoint) ? 1 : 0;
+        nrDataPoints -= decrease;
+        probability -= decrease * dataPoint.probability;
     }
 }

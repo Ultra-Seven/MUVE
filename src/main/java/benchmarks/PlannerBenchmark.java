@@ -2,24 +2,26 @@ package benchmarks;
 
 import config.PlanConfig;
 import matching.FuzzySearch;
+import net.sf.jsqlparser.JSQLParserException;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
+import planning.query.QueryFactory;
 import planning.viz.GreedyPlanner;
+import planning.viz.PlotGreedyPlanner;
 import planning.viz.SimpleVizPlanner;
 
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 
 public class PlannerBenchmark {
     public static String[] testQueries = new String[]{
             "Bronx"
     };
-    public static String dataset = "dob_job";
+    public static String dataset = "sample_311";
     public final static int NR_CASES = 1;
     public static Pair<Double, Double> runCase(int topK, int nrRows, boolean isGreedy) throws IOException, ParseException {
         List<Long> timerGreedy = new ArrayList<>();
@@ -115,8 +117,42 @@ public class PlannerBenchmark {
 
     }
 
-    public static void main(String[] args) throws IOException, ParseException {
-        varyTopK();
+    public static double runMUVEQuery(String query) {
+        try {
+            QueryFactory queryFactory = new QueryFactory(query);
+            return PlotGreedyPlanner.plan(queryFactory.queries, queryFactory.nrDistinctValues,
+                    2, PlanConfig.R, queryFactory, true).getRight();
+
+        } catch (Exception exception) {
+            System.out.println("No similar queries!");
+        }
+        return 0;
+    }
+
+    public static void benchmarkTopK() throws IOException {
+        double utility = 0;
+        for(String query: readQueries()) {
+            System.out.println(query);
+            double saving = runMUVEQuery(query);
+            utility += saving;
+        }
+        System.out.println("Overall: " + utility);
+    }
+
+    public static List<String> readQueries() throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader("./queries/" + dataset + "/queries.sql"));
+        String sql = reader.readLine();
+        List<String> queries = new ArrayList<>();
+        while (sql != null) {
+            queries.add(sql);
+            sql = reader.readLine();
+        }
+        return queries;
+    }
+
+    public static void main(String[] args) throws IOException {
+//        varyTopK();
 //        varyRows();
+        benchmarkTopK();
     }
 }

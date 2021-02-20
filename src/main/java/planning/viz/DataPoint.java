@@ -23,16 +23,22 @@ public class DataPoint {
      * Cost of executing the corresponding query in the backend.
      */
     public double cost = Integer.MAX_VALUE;
+    /**
+     * Unique ID of each query.
+     */
+    public final int id;
 
     /**
      * Initialize the data point instance.
      *
      * @param vector            unique vector to represent a query
      * @param probability       confidence to be the expected query
+     * @param id                unique query id
      */
-    public DataPoint(int[] vector, double probability) {
+    public DataPoint(int[] vector, double probability, int id) {
         this.vector = vector;
         this.probability = probability;
+        this.id = id;
     }
 
     /**

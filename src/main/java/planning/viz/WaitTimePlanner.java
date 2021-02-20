@@ -439,7 +439,7 @@ public class WaitTimePlanner {
             double cost = scorePoints[queryCtr].cost;
             for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
                 int queryID = queryCtr * nrRows + rowCtr + nrPlotInRows + 1;
-                double coefficient = -1 * readTime * probability + PlanConfig.Processing_WEIGHT * cost;
+                double coefficient = -1 * readTime * probability + PlanConfig.PROCESSING_WEIGHT * cost;
                 GLPK.glp_set_obj_coef(lp, queryID, coefficient);
             }
             int plotProductID = queryCtr * 2 + nrPlotInRows + nrQueryInRows + 1;
@@ -455,7 +455,7 @@ public class WaitTimePlanner {
             int plotCtr = plotIDToVarID.get(plot.plotID);
             for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
                 int plotID = plotCtr * nrRows + rowCtr + 1;
-                GLPK.glp_set_obj_coef(lp, plotID, PlanConfig.Processing_WEIGHT * cost);
+                GLPK.glp_set_obj_coef(lp, plotID, PlanConfig.PROCESSING_WEIGHT * cost);
             }
         }
 
