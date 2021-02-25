@@ -43,6 +43,10 @@ public class Plot {
      * probabilities over all queries in the plot.
      */
     public double probability = 0;
+    /**
+     * Number of highlighted queries.
+     */
+    public int nrHighlighted = 0;
 
     /**
      * Initialize an instance of plot

@@ -1,142 +1,153 @@
 package benchmarks;
 
 import config.PlanConfig;
-import matching.FuzzySearch;
-import net.sf.jsqlparser.JSQLParserException;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.ScoreDoc;
 import planning.query.QueryFactory;
-import planning.viz.GreedyPlanner;
 import planning.viz.PlotGreedyPlanner;
-import planning.viz.SimpleVizPlanner;
+import planning.viz.WaitTimePlanner;
+import stats.PlanStats;
 
 import java.io.*;
 import java.util.*;
 
 public class PlannerBenchmark {
-    public static String[] testQueries = new String[]{
-            "Bronx"
-    };
     public static String dataset = "sample_311";
     public final static int NR_CASES = 1;
-    public static Pair<Double, Double> runCase(int topK, int nrRows, boolean isGreedy) throws IOException, ParseException {
-        List<Long> timerGreedy = new ArrayList<>();
-        List<Double> utilityGreedy = new ArrayList<>();
-        for (int testCtr = 0; testCtr < NR_CASES; testCtr++) {
-            for (String query: testQueries) {
-                ScoreDoc[] docs = FuzzySearch.search(query, dataset, topK);
-                if (topK != docs.length) {
-                    System.out.println("Inconsistent rows for " + query);
-                    System.exit(0);
-                }
-                IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
-                long timer1 = System.currentTimeMillis();
-                List<Map<String, List<ScoreDoc>>> results =
-                        isGreedy ? GreedyPlanner.plan(docs, nrRows, PlanConfig.R, searcher)
-                        : SimpleVizPlanner.plan(docs, nrRows, PlanConfig.R, searcher);
-                long timer2 = System.currentTimeMillis();
-                timerGreedy.add(timer2 - timer1);
-                double utility = 0;
-                int rowCtr = 1;
-                for (Map<String, List<ScoreDoc>> rowResults : results) {
-                    System.out.println("Row: " + rowCtr);
-                    for (String plotName : rowResults.keySet()) {
-                        List<String> queries = new ArrayList<>();
-                        for (ScoreDoc scoreDoc : rowResults.get(plotName)) {
-                            double score = scoreDoc.score;
-                            Document document = searcher.doc(scoreDoc.doc);
-                            utility += score;
-                            queries.add(document.get("column") + "=" + document.get("text") + ":" + score);
-                        }
-                        System.out.println("Plot: " + plotName + "\t" + "Queries: " + String.join(",", queries));
-                    }
-                    rowCtr++;
-                }
-                System.out.println("Utility: " + utility);
-                utilityGreedy.add(utility);
-            }
-        }
-
-        long totalMillis = timerGreedy.stream()
-                .reduce(0L, Long::sum);
-        long number = timerGreedy.size();
-        double totalUtility = utilityGreedy.stream().reduce(0.0, Double::sum);
-        double averageTime = (totalMillis + 0.0) / number;
-        double averageUtility = (totalUtility + 0.0) / number;
-        return new ImmutablePair<>(averageTime, averageUtility);
-    }
 
 
-    public static void varyTopK() throws IOException, ParseException {
-        int[] topKs = new int[]{50};
-        FileWriter fw = new FileWriter("planner_varyK.csv");
-        fw.write("TopK,Rows,Width,Time,Utility,Planner\n");
-        // Greedy
-        for (Integer topK: topKs) {
-            System.out.println("TopK: " + topK);
-            Pair<Double, Double> result = runCase(topK, 2, true);
-            fw.write(topK + ",2,900," + result.getLeft() + "," + result.getRight() + ",Greedy\n");
-
-        }
-
-        // ILP
-        for (Integer topK: topKs) {
-            System.out.println("TopK: " + topK);
-            Pair<Double, Double> result = runCase(topK, 2, false);
-            fw.write(topK + ",2,900," + result.getLeft() + "," + result.getRight() + ",ILP\n");
-        }
-
-        fw.close();
-
-    }
-
-    public static void varyRows() throws IOException, ParseException {
-        int[] rows = new int[]{1, 2, 3, 4, 5};
-        FileWriter fw = new FileWriter("planner_varyRows.csv");
-        fw.write("TopK,Rows,Width,Time,Utility,Planner\n");
-        // Greedy
-        for (Integer row: rows) {
-            System.out.println("Row: " + row);
-            Pair<Double, Double> result = runCase(100, row, true);
-            fw.write("100," + row + ",900," + result.getLeft() + "," + result.getRight() + ",Greedy\n");
-
-        }
-
-        // ILP
-        for (Integer row: rows) {
-            System.out.println("Row: " + row);
-            Pair<Double, Double> result = runCase(100, row, false);
-            fw.write("100," + row + ",900," + result.getLeft() + "," + result.getRight() + ",ILP\n");
-        }
-
-        fw.close();
-
-    }
-
-    public static double runMUVEQuery(String query) {
+    public static boolean runMUVEQuery(String query, boolean isStatic) {
         try {
             QueryFactory queryFactory = new QueryFactory(query);
-            return PlotGreedyPlanner.plan(queryFactory.queries, queryFactory.nrDistinctValues,
-                    2, PlanConfig.R, queryFactory, true).getRight();
+            PlotGreedyPlanner.plan(queryFactory.queries, queryFactory.nrDistinctValues,
+                    2, PlanConfig.R, queryFactory, isStatic);
+            return true;
 
         } catch (Exception exception) {
             System.out.println("No similar queries!");
+            return false;
         }
-        return 0;
     }
 
-    public static void benchmarkTopK() throws IOException {
-        double utility = 0;
-        for(String query: readQueries()) {
-            System.out.println(query);
-            double saving = runMUVEQuery(query);
-            utility += saving;
+    public static boolean runILPQuery(String query) {
+        try {
+            QueryFactory queryFactory = new QueryFactory(query);
+            WaitTimePlanner.plan(queryFactory.queries, queryFactory.nrDistinctValues,
+                    PlanConfig.NR_ROWS, PlanConfig.R, queryFactory);
+            return true;
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            System.out.println("Error when running queries!");
+            return false;
         }
-        System.out.println("Overall: " + utility);
+    }
+
+    public static void benchmarkResolution(int sys) throws IOException {
+        PrintWriter printWriter;
+        if (sys == 0) {
+            printWriter = new PrintWriter("varyResolutions_ilp.csv");
+        }
+        else if (sys == 1) {
+            printWriter = new PrintWriter("varyResolutions_greedy.csv");
+        }
+        else {
+            printWriter = new PrintWriter("varyResolutions_opt.csv");
+        }
+        // Iphone X, surface duo, ipad, ipad pro, laptop
+        int[] resolutions = new int[]{375, 540, 768, 1024, 1680};
+        printWriter.println("Query\tResolutions\tNrPlots\tWaitTime\tInitMillis" +
+                "\tBuildMillis\tOptimizeMillis\tIsTimeout");
+        for (int resolutionCtr = 0; resolutionCtr < resolutions.length; resolutionCtr++) {
+            PlanConfig.R = resolutions[resolutionCtr];
+            int queryCtr = 0;
+            for(String query: readQueries()) {
+                System.out.println(query);
+                boolean success = sys == 0 ? runILPQuery(query) : runMUVEQuery(query, sys == 1);
+                queryCtr++;
+                if (success) {
+                    printWriter.print(queryCtr + "\t");
+                    printWriter.print(PlanConfig.R + "\t");
+                    printWriter.print(PlanStats.nrPlots + "\t");
+                    printWriter.print(PlanStats.waitTime + "\t");
+                    printWriter.print(PlanStats.initMillis + "\t");
+                    printWriter.print(PlanStats.buildMillis + "\t");
+                    printWriter.print(PlanStats.optimizeMillis + "\t");
+                    printWriter.println(PlanStats.isTimeout);
+                }
+            }
+        }
+        printWriter.close();
+    }
+
+    public static void benchmarkRows(int sys) throws IOException {
+        PrintWriter printWriter;
+        if (sys == 0) {
+            printWriter = new PrintWriter("varyRows_ilp.csv");
+        }
+        else if (sys == 1) {
+            printWriter = new PrintWriter("varyRows_greedy.csv");
+        }
+        else {
+            printWriter = new PrintWriter("varyRows_opt.csv");
+        }
+        // Iphone X, surface duo, ipad, ipad pro, laptop
+        int[] rows = new int[]{1, 2, 3, 4, 5};
+        printWriter.println("Query\tRows\tNrPlots\tWaitTime\tInitMillis" +
+                "\tBuildMillis\tOptimizeMillis\tIsTimeout");
+        for (int rowCtr = 0; rowCtr < rows.length; rowCtr++) {
+            PlanConfig.NR_ROWS = rows[rowCtr];
+            int queryCtr = 0;
+            for(String query: readQueries()) {
+                System.out.println(query);
+                boolean success = sys == 0 ? runILPQuery(query) : runMUVEQuery(query, sys == 1);
+                queryCtr++;
+                if (success) {
+                    printWriter.print(queryCtr + "\t");
+                    printWriter.print(PlanConfig.NR_ROWS + "\t");
+                    printWriter.print(PlanStats.nrPlots + "\t");
+                    printWriter.print(PlanStats.waitTime + "\t");
+                    printWriter.print(PlanStats.initMillis + "\t");
+                    printWriter.print(PlanStats.buildMillis + "\t");
+                    printWriter.print(PlanStats.optimizeMillis + "\t");
+                    printWriter.println(PlanStats.isTimeout);
+                }
+            }
+        }
+        printWriter.close();
+    }
+
+    public static void benchmarkTopK(int sys) throws IOException {
+        PrintWriter printWriter;
+        if (sys == 0) {
+            printWriter = new PrintWriter("varyTopK_ilp.csv");
+        }
+        else if (sys == 1) {
+            printWriter = new PrintWriter("varyTopK_greedy.csv");
+        }
+        else {
+            printWriter = new PrintWriter("varyTopK_opt.csv");
+        }
+        int[] nrQueriesArray = new int[]{5, 10, 20};
+        printWriter.println("Query\tTopK\tNrPlots\tWaitTime\tInitMillis" +
+                "\tBuildMillis\tOptimizeMillis\tIsTimeout");
+        for (int nrQueryCtr = 0; nrQueryCtr < nrQueriesArray.length; nrQueryCtr++) {
+            PlanConfig.TOPK = nrQueriesArray[nrQueryCtr];
+            int queryCtr = 0;
+            for(String query: readQueries()) {
+                System.out.println(query);
+                boolean success = sys == 0 ? runILPQuery(query) : runMUVEQuery(query, sys == 1);
+                queryCtr++;
+                if (success) {
+                    printWriter.print(queryCtr + "\t");
+                    printWriter.print(PlanConfig.TOPK + "\t");
+                    printWriter.print(PlanStats.nrPlots + "\t");
+                    printWriter.print(PlanStats.waitTime + "\t");
+                    printWriter.print(PlanStats.initMillis + "\t");
+                    printWriter.print(PlanStats.buildMillis + "\t");
+                    printWriter.print(PlanStats.optimizeMillis + "\t");
+                    printWriter.println(PlanStats.isTimeout);
+                }
+            }
+        }
+        printWriter.close();
     }
 
     public static List<String> readQueries() throws IOException {
@@ -153,6 +164,11 @@ public class PlannerBenchmark {
     public static void main(String[] args) throws IOException {
 //        varyTopK();
 //        varyRows();
-        benchmarkTopK();
+//        benchmarkTopK(1);
+//        benchmarkResolution(1);
+//        benchmarkRows(1);
+        benchmarkTopK(2);
+        benchmarkResolution(2);
+        benchmarkRows(2);
     }
 }

@@ -27,6 +27,10 @@ public class DataPoint {
      * Unique ID of each query.
      */
     public final int id;
+    /**
+     * Whether to highlight this query?
+     */
+    public boolean highlighted = false;
 
     /**
      * Initialize the data point instance.

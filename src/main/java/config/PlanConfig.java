@@ -12,7 +12,7 @@ public class PlanConfig {
      * The total width of interface area where plots are
      * aligned.
      */
-    public static final int R = 900;
+    public static int R = 900;
     /**
      * The width of one data point that represents a query.
      */
@@ -24,28 +24,19 @@ public class PlanConfig {
     /**
      * The number of rows in given area.
      */
-    public static final int NR_ROWS = 2;
+    public static int NR_ROWS = 2;
     /**
      * Select first few queries that have the highest probability.
      */
-    public static final int TOPK = 20;
-    /**
-     * The Number of ranks that each documents will be assigned.
-     */
-    public static final int NR_RANKS = 7;
-    /**
-     * The size of ranks is increasing exponentially. The base for
-     * according number of ranks.
-     */
-    public static final double BASE = 1.16;
+    public static int TOPK = 10;
     /**
      * Duration of reading each title.
      */
-    public static final int READ_TITLE = 500;
+    public static final int READ_TITLE = 2000;
     /**
      * Duration of reading a data point.
      */
-    public static final int READ_DATA = 10;
+    public static final int READ_DATA = 1000;
     /**
      * The significance of processing time in objective function.
      */
@@ -53,5 +44,9 @@ public class PlanConfig {
     /**
      * The penalty time when the query is absent in the screen.
      */
-    public static final int PENALTY_TIME = 10000;
+    public static int PENALTY_TIME = 10000;
+    /**
+     * The time out of planner.
+     */
+    public static final int TIME_OUT = 5000;
 }

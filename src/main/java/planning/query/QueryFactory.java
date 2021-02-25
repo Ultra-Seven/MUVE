@@ -126,19 +126,39 @@ public class QueryFactory {
         // Transform documents to queries
         int nrQueries = Math.min(maxQueries, PlanConfig.TOPK);
         this.queries = new DataPoint[nrQueries];
-        int[] pivots = new int[nrValues];
         this.nrDistinctValues = new int[nrDims];
         double sum = 0;
 
-        // Match similar literals
+        // Match similar literals in round robin way
+        TreeSet<SearchDocument> nextDocuments = new TreeSet<>();
+        int[] indices = new int[nrValues];
+        double[] scores = new double[nrValues];
+
+        for (int valueCtr = 0; valueCtr < nrValues; valueCtr++) {
+            scores[valueCtr] = scoreDocs.get(valueCtr)[indices[valueCtr]].score;
+        }
+        nextDocuments.add(new SearchDocument(indices, scores));
+        IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
         for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
-            IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
+            // Find the optimal document from the set
+            SearchDocument searchDocument = nextDocuments.pollLast();
+            if (searchDocument == null) {
+                break;
+            }
+            for (int valueCtr = 0; valueCtr < nrValues; valueCtr++) {
+                SearchDocument newDocuments = new SearchDocument(searchDocument.documentIndices,
+                        searchDocument.scores);
+                int nextCtr = (++newDocuments.documentIndices[valueCtr]);
+                if (nextCtr < scoreDocs.get(valueCtr).length) {
+                    newDocuments.scores[valueCtr] = scoreDocs.get(valueCtr)[nextCtr].score;
+                    nextDocuments.add(newDocuments);
+                }
+            }
+
             int[] vector = new int[nrDims];
             double score = 0;
-            double minScoreDiff = Integer.MAX_VALUE;
-            int maxNextPivot = -1;
             for (int valueCtr = 0; valueCtr < nrValues; valueCtr++) {
-                int docCtr = pivots[valueCtr];
+                int docCtr = searchDocument.documentIndices[valueCtr];
                 int valuePos = valueIndex.get(valueCtr);
                 int columnPos = columnIndex.get(valueCtr);
                 ScoreDoc[] valueScoreDocs = scoreDocs.get(valueCtr);
@@ -153,15 +173,6 @@ public class QueryFactory {
                 keyToTerms[columnPos][vector[columnPos]] = column;
                 keyToTerms[valuePos][vector[valuePos]] = content;
                 score += scoreDoc.score;
-                // Next documents
-                if (docCtr < valueScoreDocs.length - 1) {
-                    ScoreDoc nextScoreDoc = valueScoreDocs[docCtr + 1];
-                    double scoreDiff = scoreDoc.score - nextScoreDoc.score;
-                    if (scoreDiff < minScoreDiff) {
-                        minScoreDiff = scoreDiff;
-                        maxNextPivot = valueCtr;
-                    }
-                }
             }
 
             // Join predicates
@@ -174,10 +185,7 @@ public class QueryFactory {
 
             queries[queryCtr] = new DataPoint(vector, score, queryCtr);
             sum += score;
-            // Find the next pivot
-            if (maxNextPivot != -1) {
-                pivots[maxNextPivot]++;
-            }
+
         }
         // Normalize probability distribution
         for (DataPoint dataPoint: queries) {
