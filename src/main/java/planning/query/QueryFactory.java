@@ -1,5 +1,6 @@
 package planning.query;
 
+import benchmarks.PlannerBenchmark;
 import config.PlanConfig;
 import matching.FuzzySearch;
 import net.sf.jsqlparser.JSQLParserException;
@@ -13,6 +14,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
 import planning.viz.DataPoint;
 import planning.viz.Plot;
+import stats.PlanStats;
 
 import java.io.IOException;
 import java.util.*;
@@ -137,6 +139,7 @@ public class QueryFactory {
         for (int valueCtr = 0; valueCtr < nrValues; valueCtr++) {
             scores[valueCtr] = scoreDocs.get(valueCtr)[indices[valueCtr]].score;
         }
+        PlanStats.nrPredicates = nrValues;
         nextDocuments.add(new SearchDocument(indices, scores));
         IndexSearcher searcher = FuzzySearch.searchers.get(dataset);
         for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
@@ -275,6 +278,59 @@ public class QueryFactory {
             }
         }
         return combinedPredicate;
+    }
+
+    public String mergeQueries(List<DataPoint> dataPoints, String query) {
+        String sql = "";
+        int columnIndex = this.columnIndex.get(0);
+        int valueIndex = this.valueIndex.get(0);
+        Map<Integer, List<Integer>> columnToValues = new HashMap<>(termToKey[columnIndex].size());
+        for (DataPoint dataPoint: dataPoints) {
+            int columnTerm = dataPoint.vector[columnIndex];
+            int valueTerm = dataPoint.vector[valueIndex];
+            columnToValues.putIfAbsent(columnTerm, new ArrayList<>());
+            columnToValues.get(columnTerm).add(valueTerm);
+        }
+        List<String> predicates = new ArrayList<>(columnToValues.size());
+        for (Map.Entry<Integer, List<Integer>> entry: columnToValues.entrySet()) {
+            String columnName = keyToTerms[columnIndex][entry.getKey()];
+            String mappedColumnName = PlannerBenchmark.columnsMap.get(columnName);
+            if (mappedColumnName == null) {
+                System.out.println("Error: " + columnName);
+                continue;
+            }
+            String values = entry.getValue().stream()
+                    .map(v -> "'" + keyToTerms[valueIndex][v].replace("'", " ") + "'") //i is an int, not an Integer
+                    .collect(Collectors.joining(", "));
+            String predicate = "\"" + mappedColumnName + "\" in (" + values + ")";
+            predicates.add(predicate);
+        }
+        sql = query.split(" WHERE ")[0] + " WHERE " + String.join(" OR ", predicates) + ";";
+        return sql;
+    }
+
+    public List<String> splitQueries(String query) {
+        String sql = "";
+        int columnIndex = this.columnIndex.get(0);
+        int valueIndex = this.valueIndex.get(0);
+        List<String> newQueries = new ArrayList<>();
+        for (DataPoint dataPoint: queries) {
+            int columnTerm = dataPoint.vector[columnIndex];
+            int valueTerm = dataPoint.vector[valueIndex];
+
+            String columnName = keyToTerms[columnIndex][columnTerm];
+            String mappedColumnName = PlannerBenchmark.columnsMap.get(columnName);
+            if (mappedColumnName == null) {
+                System.out.println("Error");
+                continue;
+            }
+            String value = "'" + keyToTerms[valueIndex][valueTerm].replace("'", " ") + "'";
+            String column = "\"" + mappedColumnName + "\"";
+            String newSQL = query.split(" WHERE ")[0] + " WHERE "
+                    + column + "=" + value + ";";
+            newQueries.add(newSQL);
+        }
+        return newQueries;
     }
 
     /**

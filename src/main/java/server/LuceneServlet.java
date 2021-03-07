@@ -24,6 +24,7 @@ import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import planning.query.QueryFactory;
 import planning.viz.GreedyPlanner;
 import planning.viz.SimpleVizPlanner;
 
@@ -289,6 +290,24 @@ public class LuceneServlet {
             });
         });
     }
+
+//    private static void plannerResults(WsContext session,
+//                                      JSONObject queryTemplate,
+//                                      String dataset,
+//                                      int width,
+//                                      String planner) throws ParseException, JSQLParserException, IOException {
+//        JSONArray params = queryTemplate.getJSONArray("params");
+//        List<String> listParams = new ArrayList<>();
+//        for (int paramCtr = 0; paramCtr < params.length(); paramCtr++){
+//            listParams.add(params.getString(paramCtr));
+//        }
+//        if (listParams.size() > 0) {
+//            // Parse query to template
+//            String sql = queryTemplate.getString("sql") + ";";
+//            QueryFactory queryFactory = new QueryFactory(sql);
+//            GreedyPlanner.plan(queryFactory.queries, )
+//        }
+//    }
 
     // Sends a message from one user to all users, along with a list of current usernames
     private static void searchResults(WsContext session,

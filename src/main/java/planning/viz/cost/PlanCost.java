@@ -29,9 +29,8 @@ public class PlanCost {
      *
      * @param plots             Set of plots in the optimization problem
      * @param queryFactory      Factory to generate similar queries
-     * @throws SQLException
      */
-    public static void processCost(Collection<Plot> plots, QueryFactory queryFactory) throws SQLException {
+    public static void processCost(Collection<Plot> plots, QueryFactory queryFactory) {
         List<String> explainQueries = new ArrayList<>(queryFactory.queries.length);
         String firstQuery = queryFactory.sqlWithoutPredicates();
         explainQueries.add(firstQuery + ";");
@@ -44,31 +43,40 @@ public class PlanCost {
         long timer1 = System.currentTimeMillis();
         String costRegex = "[0-9]+\\.[0-9][0-9]\\.\\.[0-9]+\\.[0-9][0-9]";
         Pattern pattern = Pattern.compile(costRegex);
-        // Extract cost information from the explain output
-        List<Double> explainCost = PSQLConnector.getConnector().explain(explainQueries)
-                .stream().filter(output -> output.startsWith("  ->  Seq Scan "))
-                .mapToDouble(output -> {
-                    Matcher matcher = pattern.matcher(output);
-                    if (matcher.find()) {
-                        String[] numbers = matcher.group(0).split("\\.\\.");
-                        return Double.parseDouble(numbers[1]);
-                    }
-                    else {
-                        return 0.0;
-                    }
-                }).boxed().collect(Collectors.toList());
+        try {
+            // Extract cost information from the explain output
+            List<Double> explainCost = PSQLConnector.getConnector().explain(explainQueries)
+                    .stream().filter(output -> output.startsWith("  ->  Seq Scan "))
+                    .mapToDouble(output -> {
+                        Matcher matcher = pattern.matcher(output);
+                        if (matcher.find()) {
+                            String[] numbers = matcher.group(0).split("\\.\\.");
+                            return Double.parseDouble(numbers[1]);
+                        }
+                        else {
+                            return 0.0;
+                        }
+                    }).boxed().collect(Collectors.toList());
 
-        // Cost of first query
-        double initialCost = explainCost.remove(0);
-        int outputCtr = 0;
-        for (Plot plot : plots) {
-            double delta = explainCost.get(outputCtr) - initialCost;
-            double cost = delta / plot.nrDataPoints;
-            for (DataPoint dataPoint: plot.dataPoints) {
-                dataPoint.setCost(cost);
+            // Cost of first query
+            double initialCost = explainCost.remove(0);
+            int outputCtr = 0;
+            for (Plot plot : plots) {
+                double delta = explainCost.get(outputCtr) - initialCost;
+                double cost = delta / plot.nrDataPoints;
+                for (DataPoint dataPoint: plot.dataPoints) {
+                    dataPoint.setCost(cost);
+                }
+                plot.setCost(initialCost);
+                outputCtr++;
             }
-            plot.setCost(initialCost);
-            outputCtr++;
+        } catch (SQLException exception) {
+            for (Plot plot : plots) {
+                for (DataPoint dataPoint: plot.dataPoints) {
+                    dataPoint.setCost(0);
+                }
+                plot.setCost(0);
+            }
         }
 
         long timer2 = System.currentTimeMillis();

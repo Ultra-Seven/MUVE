@@ -15,6 +15,10 @@ public class PlanStats {
      */
     public static int nrPlots = 0;
     /**
+     * Number of predicates in the query.
+     */
+    public static int nrPredicates = 0;
+    /**
      * The expected wait time of optimal plan.
      */
     public static double waitTime = 0;

@@ -157,7 +157,8 @@ public class WaitTimePlanner {
         int nrPlotInRows = nrRows * nrPlots;
         int nrQueryInPlotsInRows = Arrays.stream(queriesToPlots).reduce(0,
                 (result, array)->result + array[0],Integer::sum) * nrRows;
-        int nrProducts = nrQueries * 3 * (nrQueries + nrPlots);
+        int nrProducts = nrQueries * 2;
+//        int nrProducts = nrQueries * 3 * (nrQueries + nrPlots);
         int nrPlotsForm = nrPlots * 2;
         GLPK.glp_add_cols(lp, nrPlotInRows + nrQueryInPlotsInRows * 2 + nrProducts + nrPlotsForm);
 
@@ -192,16 +193,24 @@ public class WaitTimePlanner {
 
         // Product variables
         int nrQueryInPlots = nrQueryInPlotsInRows / nrRows;
-        for (int productCtr = 0; productCtr < 3; productCtr++) {
+        for (int formCtr = 0; formCtr < 2; formCtr++) {
             for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
-                for (int binaryCtr = 0; binaryCtr < nrQueries + nrPlots; binaryCtr++) {
-                    int varID = productCtr * nrQueries * (nrQueries + nrPlots) + queryCtr * (nrQueries + nrPlots) +
-                            binaryCtr + startIndex;
-                    GLPK.glp_set_col_name(lp, varID, "product_" + productCtr + "_" + queryCtr);
-                    GLPK.glp_set_col_kind(lp, varID, GLPKConstants.GLP_BV);
-                }
+                int varID = formCtr * nrQueries + queryCtr + startIndex;
+                GLPK.glp_set_col_name(lp, varID, "product_" + formCtr + "_" + queryCtr);
+                GLPK.glp_set_col_kind(lp, varID, GLPKConstants.GLP_IV);
+                GLPK.glp_set_col_bnds(lp, varID, GLPKConstants.GLP_LO, 0., 0.);
             }
         }
+//        for (int productCtr = 0; productCtr < 3; productCtr++) {
+//            for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
+//                for (int binaryCtr = 0; binaryCtr < nrQueries + nrPlots; binaryCtr++) {
+//                    int varID = productCtr * nrQueries * (nrQueries + nrPlots) + queryCtr * (nrQueries + nrPlots) +
+//                            binaryCtr + startIndex;
+//                    GLPK.glp_set_col_name(lp, varID, "product_" + productCtr + "_" + queryCtr);
+//                    GLPK.glp_set_col_kind(lp, varID, GLPKConstants.GLP_BV);
+//                }
+//            }
+//        }
         startIndex += nrProducts;
 
         // Plot form
@@ -235,7 +244,7 @@ public class WaitTimePlanner {
 
         // Create constraints
         int nrConstraints = nrQueries + nrQueryInPlots
-                + nrPlots + nrRows + nrPlotsForm * 2 + 1 + nrProducts * 3;
+                + nrPlots + nrRows + nrPlotsForm * 2 + 1 + nrProducts * 4;
         GLPK.glp_add_rows(lp, nrConstraints);
         startIndex = 1;
         // Context constraints
@@ -460,153 +469,353 @@ public class WaitTimePlanner {
         startIndex += (2 * nrPlotsForm);
 
         // Constraint 7: Product of query variable and penalty
-//        int readTime = PlanConfig.READ_DATA * nrQueries + PlanConfig.READ_TITLE * nrPlots;
-        int readTime = PlanConfig.PENALTY_TIME;
+//        int readTime = (PlanConfig.READ_DATA * nrQueries + PlanConfig.READ_TITLE * nrPlots) * 2;
+//        int readTime = PlanConfig.PENALTY_TIME;
 
         int[] formOffsets = new int[]{0, nrQueryInPlotsInRows, nrQueryInPlotsInRows};
         int[] rightQueryFormOffsets = new int[]{0, 0, nrQueryInPlotsInRows};
         int[] rightPlotFormOffsets = new int[]{0, 0, nrPlots};
-        for (int formCtr = 0; formCtr < 3; formCtr++) {
+//        for (int formCtr = 0; formCtr < 3; formCtr++) {
+//            int formOffset = formOffsets[formCtr];
+//            int rightQueryFormOffset = rightQueryFormOffsets[formCtr];
+//            int rightPlotFormOffset = rightPlotFormOffsets[formCtr];
+//            for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
+//                for (int rightCtr = 0; rightCtr < nrQueries + nrPlots; rightCtr++) {
+//                    // case 1 for highlighted queries: x1 - y >= 0
+//                    int constraintID = (formCtr * nrQueries * (nrQueries + nrPlots)
+//                            + queryCtr * (nrQueries + nrPlots) + rightCtr) * 3 + startIndex;
+//
+//                    int productID = formCtr * nrQueries * (nrQueries + nrPlots) + queryCtr * (nrQueries + nrPlots)
+//                            + rightCtr + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
+//                    GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+//                    GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_LO, 0., 1.);
+//
+//                    int[] plotsForQuery = queriesToPlots[queryCtr];
+//                    int nrPlotsForQuery = plotsForQuery[0];
+//                    int offset = queriesPlotOffsets[queryCtr];
+//                    int index = 0;
+//                    int localSize = nrPlotsForQuery * nrRows + 2;
+//                    SWIGTYPE_p_int localRowInd = GLPK.new_intArray(localSize);
+//                    SWIGTYPE_p_double localRowVal = GLPK.new_doubleArray(localSize);
+//                    List<String> ids = new ArrayList<>();
+//                    for (int queryPlotCtr = 1; queryPlotCtr <= nrPlotsForQuery; queryPlotCtr++) {
+//                        for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
+//                            int varID = (queryPlotCtr + offset - 1) * nrRows +
+//                                    rowCtr + nrPlotInRows + 1 + formOffset;
+//                            ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                            GLPK.intArray_setitem(localRowInd, index + 1, varID);
+//                            GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+//                            index++;
+//                        }
+//                    }
+//
+//                    GLPK.intArray_setitem(localRowInd, index + 1, productID);
+//                    GLPK.doubleArray_setitem(localRowVal, index + 1, -1);
+//                    index++;
+//                    GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+//                    GLPK.delete_intArray(localRowInd);
+//                    GLPK.delete_doubleArray(localRowVal);
+//                    index = 0;
+//
+//
+//                    // case 2 for plots: x2 - y >= 0
+//                    constraintID++;
+//                    GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+//                    GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_LO, 0., 1.0);
+//
+//                    localSize = maxPlotsForQuery * nrRows + 2;
+//                    localRowInd = GLPK.new_intArray(localSize);
+//                    localRowVal = GLPK.new_doubleArray(localSize);
+//                    ids.clear();
+//                    if (rightCtr < nrQueries) {
+//                        int[] plotsForRightQuery = queriesToPlots[rightCtr];
+//                        int nrPlotsForRightQuery = plotsForRightQuery[0];
+//                        int rightOffset = queriesPlotOffsets[rightCtr];
+//                        for (int rightQueryPlotCtr = 1; rightQueryPlotCtr <= nrPlotsForRightQuery; rightQueryPlotCtr++) {
+//                            for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
+//                                int varID = (rightQueryPlotCtr + rightOffset - 1) * nrRows +
+//                                        rowCtr + nrPlotInRows + 1 + rightQueryFormOffset;
+//                                ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                                GLPK.intArray_setitem(localRowInd, index + 1, varID);
+//                                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+//                                index++;
+//                            }
+//                        }
+//                    }
+//                    else {
+//                        int rightPlotCtr = rightCtr - nrQueries;
+//                        int varID = rightPlotCtr + nrProducts + nrQueryInPlotsInRows * 2
+//                                + nrPlotInRows + 1 + rightPlotFormOffset;
+//                        ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+//                        GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+//                        index++;
+//                    }
+//
+//                    GLPK.intArray_setitem(localRowInd, index + 1, productID);
+//                    GLPK.doubleArray_setitem(localRowVal, index + 1, -1);
+//                    index++;
+//                    GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+//                    GLPK.delete_intArray(localRowInd);
+//                    GLPK.delete_doubleArray(localRowVal);
+//                    index = 0;
+//
+//                    // case 3 for plots: x1 + x2 - y <= 1
+//                    constraintID++;
+//                    localSize = maxPlotsForQuery * nrRows * 2 + 2;
+//                    localRowInd = GLPK.new_intArray(localSize);
+//                    localRowVal = GLPK.new_doubleArray(localSize);
+//                    GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+//                    GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0., 1.);
+//
+//                    int constant = rightCtr == queryCtr && formCtr != 1 ? 2 : 1;
+//                    ids.clear();
+//                    for (int queryPlotCtr = 1; queryPlotCtr <= nrPlotsForQuery; queryPlotCtr++) {
+//                        for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
+//                            int varID = (queryPlotCtr + offset - 1) * nrRows +
+//                                    rowCtr + nrPlotInRows + 1 + formOffset;
+//                            ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                            GLPK.intArray_setitem(localRowInd, index + 1, varID);
+//                            GLPK.doubleArray_setitem(localRowVal, index + 1, constant);
+//                            index++;
+//                        }
+//                    }
+//                    if (rightCtr == queryCtr && formCtr != 1) {
+//
+//                    }
+//                    else if (rightCtr < nrQueries) {
+//                        int[] plotsForRightQuery = queriesToPlots[rightCtr];
+//                        int nrPlotsForRightQuery = plotsForRightQuery[0];
+//                        int rightOffset = queriesPlotOffsets[rightCtr];
+//                        for (int rightQueryPlotCtr = 1; rightQueryPlotCtr <= nrPlotsForRightQuery; rightQueryPlotCtr++) {
+//                            for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
+//                                int varID = (rightQueryPlotCtr + rightOffset - 1) * nrRows +
+//                                        rowCtr + nrPlotInRows + 1 + rightQueryFormOffset;
+//                                ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                                GLPK.intArray_setitem(localRowInd, index + 1, varID);
+//                                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+//                                index++;
+//                            }
+//                        }
+//                    }
+//                    else {
+//                        int rightPlotCtr = rightCtr - nrQueries;
+//                        int varID = rightPlotCtr + nrProducts + nrQueryInPlotsInRows * 2
+//                                + nrPlotInRows + 1 + rightPlotFormOffset;
+//                        ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+//                        GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+//                        index++;
+//                    }
+//
+//                    GLPK.intArray_setitem(localRowInd, index + 1, productID);
+//                    GLPK.doubleArray_setitem(localRowVal, index + 1, -1);
+//                    index++;
+//                    GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+//                    GLPK.delete_intArray(localRowInd);
+//                    GLPK.delete_doubleArray(localRowVal);
+//
+//                }
+//            }
+//        }
+
+        int largeM = (nrQueries * PlanConfig.READ_DATA + nrPlots * PlanConfig.READ_TITLE);
+        int readTime = largeM;
+        for (int formCtr = 0; formCtr < 2; formCtr++) {
             int formOffset = formOffsets[formCtr];
-            int rightQueryFormOffset = rightQueryFormOffsets[formCtr];
-            int rightPlotFormOffset = rightPlotFormOffsets[formCtr];
             for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
-                for (int rightCtr = 0; rightCtr < nrQueries + nrPlots; rightCtr++) {
-                    // case 1 for highlighted queries: x1 - y >= 0
-                    int constraintID = (formCtr * nrQueries * (nrQueries + nrPlots)
-                            + queryCtr * (nrQueries + nrPlots) + rightCtr) * 3 + startIndex;
+                // case 1 for highlighted queries: M >= DR + Mq - y
+                int constraintID = (formCtr * nrQueries + queryCtr) * 4 + startIndex;
+                int productID = formCtr * nrQueries + queryCtr + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
+                GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+                GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0., largeM);
 
-                    int productID = formCtr * nrQueries * (nrQueries + nrPlots) + queryCtr * (nrQueries + nrPlots)
-                            + rightCtr + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
-                    GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
-                    GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_LO, 0., 1.);
+                int index = 0;
+                int nrPlotsForQuery = queriesToPlots[queryCtr][0];
+                int localSize = formCtr == 0 ? nrQueryInPlotsInRows + nrPlots + 2 :
+                        (nrQueryInPlotsInRows + nrPlots) * 2 + 2;
+                int offset = queriesPlotOffsets[queryCtr];
 
-                    int[] plotsForQuery = queriesToPlots[queryCtr];
-                    int nrPlotsForQuery = plotsForQuery[0];
-                    int offset = queriesPlotOffsets[queryCtr];
-                    int index = 0;
-                    int localSize = nrPlotsForQuery * nrRows + 2;
-                    SWIGTYPE_p_int localRowInd = GLPK.new_intArray(localSize);
-                    SWIGTYPE_p_double localRowVal = GLPK.new_doubleArray(localSize);
-                    List<String> ids = new ArrayList<>();
-                    for (int queryPlotCtr = 1; queryPlotCtr <= nrPlotsForQuery; queryPlotCtr++) {
-                        for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
-                            int varID = (queryPlotCtr + offset - 1) * nrRows +
-                                    rowCtr + nrPlotInRows + 1 + formOffset;
-                            ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
-                            GLPK.intArray_setitem(localRowInd, index + 1, varID);
-                            GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
-                            index++;
-                        }
-                    }
-
-                    GLPK.intArray_setitem(localRowInd, index + 1, productID);
-                    GLPK.doubleArray_setitem(localRowVal, index + 1, -1);
+                SWIGTYPE_p_int localRowInd = GLPK.new_intArray(localSize);
+                SWIGTYPE_p_double localRowVal = GLPK.new_doubleArray(localSize);
+                double expectedConstant = formCtr == 0 ? 0.5 : 1;
+                int min = offset * nrRows + nrPlotInRows + 1 + formOffset;
+                int max = offset * nrRows + nrPlotsForQuery * nrRows + nrPlotInRows + 1 + formOffset;
+                for (int queryCombineCtr = 0; queryCombineCtr < nrQueryInPlotsInRows; queryCombineCtr++) {
+                    int varID = queryCombineCtr + nrPlotInRows + 1;
+                    GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                    double constant = varID >= min && varID < max ?
+                            expectedConstant * PlanConfig.READ_DATA + largeM :
+                            expectedConstant * PlanConfig.READ_DATA;
+//                    System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                    System.out.println(constant);
+                    GLPK.doubleArray_setitem(localRowVal, index + 1, constant);
                     index++;
-                    GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
-                    GLPK.delete_intArray(localRowInd);
-                    GLPK.delete_doubleArray(localRowVal);
-                    index = 0;
-
-
-                    // case 2 for plots: x2 - y >= 0
-                    constraintID++;
-                    GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
-                    GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_LO, 0., 1.0);
-
-                    localSize = maxPlotsForQuery * nrRows + 2;
-                    localRowInd = GLPK.new_intArray(localSize);
-                    localRowVal = GLPK.new_doubleArray(localSize);
-                    ids.clear();
-                    if (rightCtr < nrQueries) {
-                        int[] plotsForRightQuery = queriesToPlots[rightCtr];
-                        int nrPlotsForRightQuery = plotsForRightQuery[0];
-                        int rightOffset = queriesPlotOffsets[rightCtr];
-                        for (int rightQueryPlotCtr = 1; rightQueryPlotCtr <= nrPlotsForRightQuery; rightQueryPlotCtr++) {
-                            for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
-                                int varID = (rightQueryPlotCtr + rightOffset - 1) * nrRows +
-                                        rowCtr + nrPlotInRows + 1 + rightQueryFormOffset;
-                                ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
-                                GLPK.intArray_setitem(localRowInd, index + 1, varID);
-                                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
-                                index++;
-                            }
-                        }
-                    }
-                    else {
-                        int rightPlotCtr = rightCtr - nrQueries;
-                        int varID = rightPlotCtr + nrProducts + nrQueryInPlotsInRows * 2
-                                + nrPlotInRows + 1 + rightPlotFormOffset;
-                        ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
-                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
-                        GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
-                        index++;
-                    }
-
-                    GLPK.intArray_setitem(localRowInd, index + 1, productID);
-                    GLPK.doubleArray_setitem(localRowVal, index + 1, -1);
-                    index++;
-                    GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
-                    GLPK.delete_intArray(localRowInd);
-                    GLPK.delete_doubleArray(localRowVal);
-                    index = 0;
-
-                    // case 3 for plots: x1 + x2 - y <= 1
-                    constraintID++;
-                    localSize = maxPlotsForQuery * nrRows * 2 + 2;
-                    localRowInd = GLPK.new_intArray(localSize);
-                    localRowVal = GLPK.new_doubleArray(localSize);
-                    GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
-                    GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0., 1.);
-
-                    int constant = rightCtr == queryCtr && formCtr != 1 ? 2 : 1;
-                    ids.clear();
-                    for (int queryPlotCtr = 1; queryPlotCtr <= nrPlotsForQuery; queryPlotCtr++) {
-                        for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
-                            int varID = (queryPlotCtr + offset - 1) * nrRows +
-                                    rowCtr + nrPlotInRows + 1 + formOffset;
-                            ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
-                            GLPK.intArray_setitem(localRowInd, index + 1, varID);
-                            GLPK.doubleArray_setitem(localRowVal, index + 1, constant);
-                            index++;
-                        }
-                    }
-                    if (rightCtr == queryCtr && formCtr != 1) {
-
-                    }
-                    else if (rightCtr < nrQueries) {
-                        int[] plotsForRightQuery = queriesToPlots[rightCtr];
-                        int nrPlotsForRightQuery = plotsForRightQuery[0];
-                        int rightOffset = queriesPlotOffsets[rightCtr];
-                        for (int rightQueryPlotCtr = 1; rightQueryPlotCtr <= nrPlotsForRightQuery; rightQueryPlotCtr++) {
-                            for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
-                                int varID = (rightQueryPlotCtr + rightOffset - 1) * nrRows +
-                                        rowCtr + nrPlotInRows + 1 + rightQueryFormOffset;
-                                ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
-                                GLPK.intArray_setitem(localRowInd, index + 1, varID);
-                                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
-                                index++;
-                            }
-                        }
-                    }
-                    else {
-                        int rightPlotCtr = rightCtr - nrQueries;
-                        int varID = rightPlotCtr + nrProducts + nrQueryInPlotsInRows * 2
-                                + nrPlotInRows + 1 + rightPlotFormOffset;
-                        ids.add(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
-                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
-                        GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
-                        index++;
-                    }
-
-                    GLPK.intArray_setitem(localRowInd, index + 1, productID);
-                    GLPK.doubleArray_setitem(localRowVal, index + 1, -1);
-                    index++;
-                    GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
-                    GLPK.delete_intArray(localRowInd);
-                    GLPK.delete_doubleArray(localRowVal);
-
                 }
+
+                if (formCtr == 1) {
+                    for (int queryCombineCtr = 0; queryCombineCtr < nrQueryInPlotsInRows; queryCombineCtr++) {
+                        int varID = queryCombineCtr + nrPlotInRows + 1 + nrQueryInPlotsInRows;
+                        double constant = varID >= min && varID < max ?
+                                0.5 * PlanConfig.READ_DATA + largeM :
+                                0.5 * PlanConfig.READ_DATA;
+//                        System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        System.out.println(constant);
+                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                        GLPK.doubleArray_setitem(localRowVal, index + 1, constant);
+                        index++;
+                    }
+                }
+
+                for (int plotCtr = 0; plotCtr < nrPlots; plotCtr++) {
+                    int varID = plotCtr + nrProducts + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
+                    GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                    GLPK.doubleArray_setitem(localRowVal, index + 1,
+                            expectedConstant * PlanConfig.READ_TITLE);
+//                    System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                    System.out.println(expectedConstant * PlanConfig.READ_TITLE);
+                    index++;
+                }
+
+                if (formCtr == 1) {
+                    for (int plotCtr = 0; plotCtr < nrPlots; plotCtr++) {
+                        int varID = plotCtr + nrProducts + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1 + nrPlots;
+                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                        GLPK.doubleArray_setitem(localRowVal, index + 1,
+                                0.5 * PlanConfig.READ_TITLE);
+//                        System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        System.out.println(0.5 * PlanConfig.READ_TITLE);
+                        index++;
+                    }
+                }
+
+                GLPK.intArray_setitem(localRowInd, index + 1, productID);
+                GLPK.doubleArray_setitem(localRowVal, index + 1, -1.);
+                index++;
+
+                GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+                GLPK.delete_intArray(localRowInd);
+                GLPK.delete_doubleArray(localRowVal);
+                index = 0;
+
+
+                // case 2 for plots: y - DR + Mq <= M
+                constraintID++;
+                localRowInd = GLPK.new_intArray(localSize);
+                localRowVal = GLPK.new_doubleArray(localSize);
+                GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+                GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0, largeM);
+                GLPK.intArray_setitem(localRowInd, index + 1, productID);
+                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+                index++;
+                for (int queryCombineCtr = 0; queryCombineCtr < nrQueryInPlotsInRows; queryCombineCtr++) {
+                    int varID = queryCombineCtr + nrPlotInRows + 1;
+                    double constant = varID >= min && varID < max ?
+                            -1 * expectedConstant * PlanConfig.READ_DATA + largeM :
+                            -1 * expectedConstant * PlanConfig.READ_DATA;
+//                    System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                    System.out.println(constant);
+                    GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                    GLPK.doubleArray_setitem(localRowVal, index + 1,
+                            constant);
+                    index++;
+                }
+
+                if (formCtr == 1) {
+                    for (int queryCombineCtr = 0; queryCombineCtr < nrQueryInPlotsInRows; queryCombineCtr++) {
+                        int varID = queryCombineCtr + nrPlotInRows + 1 + nrQueryInPlotsInRows;
+                        double constant = varID >= min && varID < max ?
+                                -0.5 * PlanConfig.READ_DATA + largeM :
+                                -0.5 * PlanConfig.READ_DATA;
+//                        System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        System.out.println(constant);
+                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                        GLPK.doubleArray_setitem(localRowVal, index + 1, constant);
+                        index++;
+                    }
+                }
+
+                for (int plotCtr = 0; plotCtr < nrPlots; plotCtr++) {
+                    int varID = plotCtr + nrProducts + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
+                    GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                    GLPK.doubleArray_setitem(localRowVal, index + 1,
+                            -1 * expectedConstant * PlanConfig.READ_TITLE);
+//                    System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                    System.out.println(-1 * expectedConstant * PlanConfig.READ_TITLE);
+                    index++;
+                }
+
+                if (formCtr == 1) {
+                    for (int plotCtr = 0; plotCtr < nrPlots; plotCtr++) {
+                        int varID = plotCtr + nrProducts + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1 + nrPlots;
+                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                        GLPK.doubleArray_setitem(localRowVal, index + 1,
+                                -0.5 * PlanConfig.READ_TITLE);
+//                        System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        System.out.println(-0.5 * PlanConfig.READ_TITLE);
+                        index++;
+                    }
+                }
+
+                GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+                GLPK.delete_intArray(localRowInd);
+                GLPK.delete_doubleArray(localRowVal);
+                index = 0;
+
+                // case 3 for plots: y + Mq >= 0
+                constraintID++;
+                localSize = nrPlotsForQuery * nrRows + 2;
+                localRowInd = GLPK.new_intArray(localSize);
+                localRowVal = GLPK.new_doubleArray(localSize);
+                GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+                GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_LO, 0., 0.);
+
+                GLPK.intArray_setitem(localRowInd, index + 1, productID);
+                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+                index++;
+
+                for (int queryPlotCtr = 1; queryPlotCtr <= nrPlotsForQuery; queryPlotCtr++) {
+                    for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
+                        int varID = (queryPlotCtr + offset - 1) * nrRows +
+                                rowCtr + nrPlotInRows + 1 + formOffset;
+                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                        GLPK.doubleArray_setitem(localRowVal, index + 1, largeM);
+//                        System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        System.out.println(largeM);
+                        index++;
+                    }
+                }
+                GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+                GLPK.delete_intArray(localRowInd);
+                GLPK.delete_doubleArray(localRowVal);
+                index = 0;
+
+                // case 4 for plots: y - Mq <= 0
+                constraintID++;
+                localSize = nrPlotsForQuery * nrRows + 2;
+                localRowInd = GLPK.new_intArray(localSize);
+                localRowVal = GLPK.new_doubleArray(localSize);
+                GLPK.glp_set_row_name(lp, constraintID, "c_" + constraintID);
+                GLPK.glp_set_row_bnds(lp, constraintID, GLPKConstants.GLP_UP, 0., 0.);
+
+                GLPK.intArray_setitem(localRowInd, index + 1, productID);
+                GLPK.doubleArray_setitem(localRowVal, index + 1, 1.);
+                index++;
+
+                for (int queryPlotCtr = 1; queryPlotCtr <= nrPlotsForQuery; queryPlotCtr++) {
+                    for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
+                        int varID = (queryPlotCtr + offset - 1) * nrRows +
+                                rowCtr + nrPlotInRows + 1 + formOffset;
+                        GLPK.intArray_setitem(localRowInd, index + 1, varID);
+                        GLPK.doubleArray_setitem(localRowVal, index + 1, -1 * largeM);
+//                        System.out.println(idToString(varID, queriesToPlots, plotsToQueries, nrRows, nrQueryInPlotsInRows, nrProducts));
+//                        System.out.println(-1 * largeM);
+                        index++;
+                    }
+                }
+                GLPK.glp_set_mat_row(lp, constraintID, index, localRowInd, localRowVal);
+                GLPK.delete_intArray(localRowInd);
+                GLPK.delete_doubleArray(localRowVal);
             }
         }
 
@@ -643,21 +852,12 @@ public class WaitTimePlanner {
             }
         }
 
-        int[] coefForms = new int[]{1, 2, 1};
-        for (int formCtr = 0; formCtr < 3; formCtr++) {
-            int coef = coefForms[formCtr];
+        for (int formCtr = 0; formCtr < 2; formCtr++) {
             for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
                 double probability = scorePoints[queryCtr].probability;
-                for (int rightCtr = 0; rightCtr < nrQueries + nrPlots; rightCtr++) {
-                    int productID = formCtr * nrQueries * (nrQueries + nrPlots) + queryCtr * (nrQueries + nrPlots)
-                            + rightCtr + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
-                    if (rightCtr < nrQueries) {
-                        GLPK.glp_set_obj_coef(lp, productID, probability * coef * PlanConfig.READ_DATA / 2);
-                    }
-                    else {
-                        GLPK.glp_set_obj_coef(lp, productID, probability * coef * PlanConfig.READ_TITLE / 2);
-                    }
-                }
+                int productID = formCtr * nrQueries + queryCtr +
+                        + nrQueryInPlotsInRows * 2 + nrPlotInRows + 1;
+                GLPK.glp_set_obj_coef(lp, productID, probability);
             }
         }
 
@@ -804,7 +1004,7 @@ public class WaitTimePlanner {
     public static String idToString(int varID, int[][] queriesToPlots, int[][] plotsToQueries,
                                     int nrRows, int allQueries, int nrProducts) {
         int nrPlots = plotsToQueries.length;
-        int nrQueries = plotsToQueries.length;
+        int nrQueries = queriesToPlots.length;
 
         if (varID < nrPlots * nrRows + 1) {
             return "Plot " + ((varID - 1) / nrRows) + " in Row " + ((varID - 1) % nrRows);
@@ -824,6 +1024,9 @@ public class WaitTimePlanner {
                     break;
                 }
                 sum += nrPlotsForQuery * nrRows;
+            }
+            if (targetCtr == -1) {
+                System.out.println("Wrong");
             }
             return "Highlighted Query " + targetCtr + " in Plot " + targetPlot + " in Row " + targetRow;
         }
@@ -856,10 +1059,14 @@ public class WaitTimePlanner {
     }
 
     public static void main(String[] args) throws IOException, ParseException, JSQLParserException, SQLException {
-        String query = "SELECT count(*) FROM dob_job WHERE \"city\" = 'Bronx';";
+        String query = "SELECT count(*) FROM sample_311 WHERE \"intersection_street_1\"='EAST  110 STREET'";
+        PlanConfig.TOPK = 5;
+        PlanConfig.R = 300;
+        PlanConfig.PROCESSING_WEIGHT = 0;
+        PlanConfig.NR_ROWS = 1;
         QueryFactory queryFactory = new QueryFactory(query);
 
-        plan(queryFactory.queries, queryFactory.nrDistinctValues, 2, PlanConfig.R, queryFactory);
+        plan(queryFactory.queries, queryFactory.nrDistinctValues, 1, PlanConfig.R, queryFactory);
 
     }
 }

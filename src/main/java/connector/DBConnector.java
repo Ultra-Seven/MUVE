@@ -29,4 +29,6 @@ public abstract class DBConnector {
      * @throws SQLException
      */
     public abstract List<String> explain(List<String> queries) throws SQLException;
+
+    public abstract List<String> execute(String query) throws SQLException;
 }

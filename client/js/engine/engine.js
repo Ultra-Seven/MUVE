@@ -37,7 +37,7 @@ class Engine {
                         $("#viz_title").html("No Results for " + JSON.stringify(template));
                     }
                     else {
-                        this.draw(this.render_data);
+                        this.drawChartJS(this.render_data);
                     }
                 },
                 url: config.host + route
@@ -65,6 +65,60 @@ class Engine {
         const name = $('#datasets').val();
         const params = [name, sql, $("#viz").width(), $("#planner").val()];
         this.connector.send(params.join(";"));
+    }
+
+    drawChartJS(query_results, colors) {
+        $("#viz").empty();
+        $("#legend").empty();
+        const charts = [];
+        _.each(query_results, (row, idx) => {
+            const groupBys = Object.keys(row);
+            const nrFigures = groupBys.length;
+            const rowName = "row_" + idx;
+            $("#viz").append("<div id='" + rowName + "'></div>");
+            for (let figureCtr = 0; figureCtr < nrFigures; figureCtr++) {
+                const barName = "bar_" + idx + "_" + figureCtr;
+                const group = groupBys[figureCtr];
+                const width = row[group]["width"];
+                const data = row[group]["data"];
+                $("#" + rowName).append(
+                    "<div id='" + barName +
+                    "' style='width: " + width + "%; height: 350px;display: inline-block;'></div>"
+                );
+                $("#" + barName).append("<canvas id='canvas_" + barName + "'></canvas>");
+
+                const barChart = new Barchart(barName, this);
+                charts.push(barChart);
+                barChart.drawBarChartUsingChartJS(data, group);
+                // Title name
+                const key = Object.keys(data[0]["results"])[0];
+                const key_arr = _.filter(key.split(/[()]+/), element => element !== "");
+                const aggTitle = key_arr[0];
+                const target = (key_arr.length === 1 ?
+                    key_arr[0] : key_arr[1]).replaceAll("_"," ");
+                let aggPrefix;
+                if (aggTitle.startsWith("max")) {
+                    aggPrefix = "Maximum of ";
+                }
+                else if (aggTitle.startsWith("min")) {
+                    aggPrefix = "Minimum of ";
+                }
+                else if (aggTitle.startsWith("sum")) {
+                    aggPrefix = "Sum of ";
+                }
+                else if (aggTitle.startsWith("avg")) {
+                    aggPrefix = "Average of ";
+                }
+                else {
+                    aggPrefix = "Count of ";
+                }
+                $("#viz_title").html("Visualizations for " + aggPrefix + target);
+            }
+
+        });
+
+        // Remove watermarks
+        $('.canvasjs-chart-credit').remove();
     }
 
     draw(query_results, colors) {

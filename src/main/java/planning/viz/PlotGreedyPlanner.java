@@ -79,7 +79,15 @@ public class PlotGreedyPlanner {
         int nrPlots = idToPlots.size();
         PlanStats.nrQueries = nrQueries;
         PlanStats.nrPlots = nrPlots;
-        PlanCost.processCost(idToPlots.values(), factory);
+        int penaltyTime = nrQueries * PlanConfig.READ_DATA + nrPlots * PlanConfig.READ_TITLE;
+        if (PlanConfig.PROCESSING_WEIGHT > Double.MIN_VALUE) {
+            PlanCost.processCost(idToPlots.values(), factory);
+        }
+        else {
+            for (DataPoint dataPoint: scorePoints) {
+                dataPoint.cost = 0;
+            }
+        }
 
         Map<Integer, List<Plot>> plotToCandidates = new HashMap<>(nrPlots);
         Set<DataPoint> newDataPoints = new HashSet<>(nrQueries);
@@ -102,9 +110,11 @@ public class PlotGreedyPlanner {
             plotToCandidates.put(plotID, plotCandidates);
         });
         List<Plot> bestPlots = new ArrayList<>(nrPlots);
+        Map<Integer, Plot> bestPlotsMap = new HashMap<>(nrPlots);
         int nrSubQueries = 0;
         double timeSaving = 0;
         long optimizeMillis = System.currentTimeMillis();
+        int offset = 0;
         for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
             double timeSavingForRow = 0;
             while (plotToCandidates.size() > 0) {
@@ -119,10 +129,10 @@ public class PlotGreedyPlanner {
                 for (Map.Entry<Integer, List<Plot>> entry: plotToCandidates.entrySet()) {
                     for (Plot plot: entry.getValue()) {
                         double savings = isStatic ? timeSavingsFromStaticPlot(plot,
-                                bestPlots, bestDataPoints, nrSubQueries) :
-                                timeSavingsFromPlot(plot, bestPlots, nrSubQueries);
+                                bestPlots, bestDataPoints, nrSubQueries, penaltyTime) :
+                                timeSavingsFromPlot(plot, bestPlots, nrSubQueries, penaltyTime);
                         int plotPixels = PlanConfig.C + PlanConfig.B * plot.nrDataPoints;
-                        if (savings > bestSavings && pixels + plotPixels < R) {
+                        if (savings > bestSavings && pixels + plotPixels <= R) {
                             bestPlot = plot;
                             bestSavings = savings;
                             bestPixels = plotPixels;
@@ -136,8 +146,11 @@ public class PlotGreedyPlanner {
                     timeSavingForRow += bestSavings;
                     if (!isStatic) {
                         nrSubQueries += bestPlot.nrDataPoints;
-//                        plotToCandidates.remove(bestPlot.plotID);
+                        newDataPoints.clear();
                         newDataPoints.addAll(bestPlot.dataPoints);
+                        plotToCandidates.get(bestPlot.plotID).remove(bestPlot);
+                        mergePlots(bestPlot, bestPlotsMap);
+                        bestDataPoints.addAll(bestPlot.dataPoints);
                     }
                     else {
                         nrSubQueries += bestPlot.nrDataPoints;
@@ -151,22 +164,26 @@ public class PlotGreedyPlanner {
             }
 
             timeSaving += timeSavingForRow;
-
+            pixels = 0;
             // Materialize the result of output plan
             Map<String, List<DataPoint>> resultsPerRow = new HashMap<>();
-            for (int plotCtr = 0; plotCtr < bestPlots.size(); plotCtr++) {
+            for (int plotCtr = offset; plotCtr < bestPlots.size(); plotCtr++) {
                 Plot bestPlot = bestPlots.get(plotCtr);
                 String contextName = String.valueOf(bestPlot.plotID);
                 resultsPerRow.put(contextName, bestPlot.dataPoints);
             }
+            offset = bestPlots.size();
             results.add(resultsPerRow);
         }
+
         // Optimize coloring
         int nrBestQueries = bestDataPoints.size();
         int colorCtr = 0;
         int nrHighlightedPlots = 0;
         int nrUncoloredPlots = bestPlots.size();
         double highlightedProbs = 0;
+        double uncoloredProbs = bestDataPoints.stream()
+                .reduce(0.0, (partialResult, dataPoint) -> partialResult + dataPoint.probability, Double::sum);
         while (colorCtr < nrBestQueries / 2) {
             DataPoint bestDataPoint = null;
             double bestTime = Integer.MAX_VALUE;
@@ -182,8 +199,10 @@ public class PlotGreedyPlanner {
                                 queryNewHighlight ? nrHighlightedPlots + 1 : nrHighlightedPlots,
                                 queryRemoveUncolored ? nrUncoloredPlots - 1 : nrUncoloredPlots,
                                 colorCtr + 1,
-                                nrQueries - colorCtr - 1,
-                                highlightedProbs);
+                                nrBestQueries - colorCtr - 1,
+                                highlightedProbs,
+                                uncoloredProbs,
+                                penaltyTime);
                         if (timeFromColoring < bestTime) {
                             bestDataPoint = dataPoint;
                             bestTime = timeFromColoring;
@@ -194,9 +213,9 @@ public class PlotGreedyPlanner {
                     }
                 }
             }
-
-            if (bestDataPoint != null && PlanConfig.PENALTY_TIME - bestTime > timeSaving) {
-                timeSaving = PlanConfig.PENALTY_TIME - bestTime;
+            double bestSaving = penaltyTime - bestTime;
+            if (bestDataPoint != null && bestSaving > timeSaving) {
+                timeSaving = bestSaving;
                 bestDataPoint.highlighted = true;
                 if (newHighlight) {
                     nrHighlightedPlots++;
@@ -216,21 +235,22 @@ public class PlotGreedyPlanner {
         PlanStats.buildMillis = optimizeMillis - buildMillis;
         PlanStats.optimizeMillis = endMillis - optimizeMillis;
         PlanStats.isTimeout = false;
-        PlanStats.waitTime = PlanConfig.PENALTY_TIME - timeSaving;
+        PlanStats.waitTime = penaltyTime - timeSaving;
 
-        System.out.println("Time Saving: " + timeSaving);
+        System.out.println("Cost: " + PlanStats.waitTime);
 
-//        int rowCtr = 0;
-//        for (Map<String, List<DataPoint>> resultsPerRow: results) {
-//            System.out.println("Row: " + rowCtr);
-//            for (String groupVal: resultsPerRow.keySet()) {
-//                System.out.println("Group by: " + groupVal);
-//                for (DataPoint dataPoint: resultsPerRow.get(groupVal)) {
-//                    System.out.println(factory.queryString(dataPoint) + "\tScore:" + dataPoint.probability);
-//                }
-//            }
-//            rowCtr++;
-//        }
+        int rowCtr = 0;
+        for (Map<String, List<DataPoint>> resultsPerRow: results) {
+            System.out.println("Row: " + rowCtr);
+            for (String groupVal: resultsPerRow.keySet()) {
+                System.out.println("Group by: " + groupVal);
+                for (DataPoint dataPoint: resultsPerRow.get(groupVal)) {
+                    System.out.println(factory.queryString(dataPoint) +
+                            "\tScore:" + dataPoint.probability + "\tHighlighted: " + dataPoint.highlighted);
+                }
+            }
+            rowCtr++;
+        }
 
         return results;
     }
@@ -244,20 +264,23 @@ public class PlotGreedyPlanner {
      * @return                          The time savings from outputting matching queries within plot
      */
     private static double timeFromColoring(DataPoint dataPoint,
-                                                  int nrHighlightedPlots,
-                                                  int nrUncoloredPlots,
-                                                  int nrHighlightedQueries,
-                                                  int nrUncoloredQueries,
-                                                  double highlightProbs) {
+                                           int nrHighlightedPlots,
+                                           int nrUncoloredPlots,
+                                           int nrHighlightedQueries,
+                                           int nrUncoloredQueries,
+                                           double highlightProbs,
+                                           double uncoloredProbes,
+                                           int penaltyTime) {
         int timeForHighlighted = (nrHighlightedPlots * PlanConfig.READ_TITLE
                 + nrHighlightedQueries * PlanConfig.READ_DATA);
 
         int timeForUncolored = (nrUncoloredPlots * PlanConfig.READ_TITLE
                 + nrUncoloredQueries * PlanConfig.READ_DATA);
 
-
-        return (highlightProbs + dataPoint.probability) * 0.5 * timeForHighlighted
-                + (1 - highlightProbs - dataPoint.probability) * (timeForHighlighted + 0.5 * timeForUncolored);
+        double time = (highlightProbs + dataPoint.probability) * 0.5 * timeForHighlighted
+                + (uncoloredProbes - dataPoint.probability) * (timeForHighlighted + 0.5 * timeForUncolored)
+                + (1 - highlightProbs - uncoloredProbes) * penaltyTime;
+        return time;
     }
 
     /**
@@ -268,7 +291,7 @@ public class PlotGreedyPlanner {
      * @param nrSubQueries  Number of queries in optimal plots
      * @return              The time savings from outputting matching queries within plot
      */
-    private static double timeSavingsFromPlot(Plot plot, List<Plot> bestPlots, int nrSubQueries) {
+    private static double timeSavingsFromPlot(Plot plot, List<Plot> bestPlots, int nrSubQueries, int penalty) {
         // Additional time cost for reading queries in the new plot
         int timeForQueries = plot.nrDataPoints * PlanConfig.READ_DATA;
         // Additional time cost for reading the title of new plot
@@ -279,9 +302,12 @@ public class PlotGreedyPlanner {
             totalSavings -= (selectedPlot.probability * 0.5 * (timeForTitle + timeForQueries));
         }
 
-        double plotTimeSaving = PlanConfig.PENALTY_TIME - PlanConfig.PROCESSING_WEIGHT * plot.cost * plot.nrDataPoints
-                - 0.5 * ((nrSubQueries + plot.nrDataPoints) * PlanConfig.READ_DATA
-                + (1 + bestPlots.size()) * PlanConfig.READ_TITLE);
+        double cost = PlanConfig.PROCESSING_WEIGHT * plot.cost * plot.nrDataPoints
+                + 0.5 * ((nrSubQueries + plot.nrDataPoints) * PlanConfig.READ_DATA +
+                (1 + bestPlots.size()) * PlanConfig.READ_TITLE);
+
+        double plotTimeSaving = penalty - cost;
+
         totalSavings += (plot.probability * plotTimeSaving);
 
         return totalSavings;
@@ -296,7 +322,7 @@ public class PlotGreedyPlanner {
      * @return              The time savings from outputting matching queries within plot
      */
     private static double timeSavingsFromStaticPlot(Plot plot, List<Plot> bestPlots,
-                                                    Set<DataPoint> bestDataPoints, int nrSubQueries) {
+                                                    Set<DataPoint> bestDataPoints, int nrSubQueries, int penalty) {
 
         List<DataPoint> distinctDataPoints = new ArrayList<>(plot.nrDataPoints);
         distinctDataPoints.addAll(plot.dataPoints);
@@ -315,9 +341,11 @@ public class PlotGreedyPlanner {
             totalSavings -= (selectedPlot.probability * 0.5 * (timeForTitle + timeForQueries));
         }
 
-        double plotTimeSaving = PlanConfig.PENALTY_TIME - PlanConfig.PROCESSING_WEIGHT * plot.cost * nrPlotQueries
-                - 0.5 * ((nrSubQueries + plot.nrDataPoints) * PlanConfig.READ_DATA
-                + (1 + bestPlots.size()) * PlanConfig.READ_TITLE);
+        double cost = PlanConfig.PROCESSING_WEIGHT * plot.cost * nrPlotQueries
+                + 0.5 * ((nrSubQueries + plot.nrDataPoints) * PlanConfig.READ_DATA +
+                (1 + bestPlots.size()) * PlanConfig.READ_TITLE);
+
+        double plotTimeSaving = penalty - cost;
         totalSavings += (probability * plotTimeSaving);
 
         return totalSavings;
@@ -348,21 +376,45 @@ public class PlotGreedyPlanner {
         if (newDataPoints.size() > 0) {
             // Remove redundant plots
             plotToCandidates.forEach((plotID, candidates) -> {
-                Set<Integer> nrDataPointsSet = new HashSet<>(candidates.size());
+                Map<Integer, List<Plot>> plotMap = new HashMap<>(candidates.size());
                 Iterator<Plot> plotIterator = candidates.iterator();
                 while (plotIterator.hasNext()) {
                     Plot nextPlot = plotIterator.next();
                     int nrDataPoints = nextPlot.nrDataPoints;
-                    if (nrDataPointsSet.contains(nrDataPoints)) {
-                        plotIterator.remove();
+                    if (plotMap.containsKey(nrDataPoints)) {
+                        for (Plot plot: plotMap.get(nrDataPoints)) {
+                            if (nextPlot.equals(plot)) {
+                                plotIterator.remove();
+                            }
+                            break;
+                        }
                     }
                     else {
-                        nrDataPointsSet.add(nrDataPoints);
+                        plotMap.putIfAbsent(nrDataPoints, new ArrayList<>());
+                        plotMap.get(nrDataPoints).add(nextPlot);
                     }
                 }
             });
         }
 
+    }
+
+    /**
+     * Merge plots with the same ID together
+     *
+     */
+    private static void mergePlots(Plot bestPlot, Map<Integer, Plot> plotMap) {
+        int plotID = bestPlot.plotID;
+        if (plotMap.containsKey(plotID)) {
+            for (DataPoint dataPoint: bestPlot.dataPoints) {
+                Plot savedPlot = plotMap.get(bestPlot.plotID);
+                savedPlot.addDataPoint(dataPoint);
+                savedPlot.sortByProbability();
+            }
+        }
+        else {
+            plotMap.put(plotID, bestPlot);
+        }
     }
 
 

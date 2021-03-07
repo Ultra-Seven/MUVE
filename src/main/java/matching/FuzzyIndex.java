@@ -14,6 +14,7 @@ public class FuzzyIndex {
     public static final String DATA_FILE = "/Users/tracy/Documents/Research/mlsql/sample_311.csv";
     public static final String AU_FILE = "/Users/tracy/Documents/PythonProject/xls2csv/csv/sample_au.csv";
     public static final String JOB_FILE = "/Users/tracy/Downloads/dob_job.csv";
+    public static final String LARGE_JOB_FILE = "/Users/tracy/Downloads/DOB_Job_Application_Filings.csv";
     public static final String FIELD_CONTENTS = "content";
     public static final String FIELD_PATH = "path";
 
@@ -22,7 +23,7 @@ public class FuzzyIndex {
 //        Schema schema = new Sample311();
 //        Schema schema = new SampleAu();
         Schema schema = new DobJob();
-        String inputFilePath = JOB_FILE;
+        String inputFilePath = LARGE_JOB_FILE;
         String[] name_arr = inputFilePath.split("/");
 
         String name = name_arr[name_arr.length - 1].split("\\.")[0];

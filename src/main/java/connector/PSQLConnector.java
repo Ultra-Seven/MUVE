@@ -1,4 +1,5 @@
 package connector;
+import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,8 +40,16 @@ public class PSQLConnector extends DBConnector{
     }
 
 
-    public static List<String> execute() {
-        return new ArrayList<>();
+    public List<String> execute(String query) throws SQLException {
+        Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery(query);
+        List<String> results = new ArrayList<>();
+        while (rs.next()) {
+            String targetName = rs.getString(1);
+            results.add(targetName);
+        }
+        rs.close();
+        return results;
     }
 
     public List<String> explain(List<String> queries) throws SQLException {

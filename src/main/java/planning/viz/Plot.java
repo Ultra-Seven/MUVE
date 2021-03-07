@@ -98,4 +98,21 @@ public class Plot {
         nrDataPoints -= decrease;
         probability -= decrease * dataPoint.probability;
     }
+
+    /**
+     * Whether two plots are equivalent.
+     *
+     * @param plot      another plot
+     */
+    public boolean equals(Plot plot) {
+        if (nrDataPoints != plot.nrDataPoints) {
+            return false;
+        }
+        for (int dataCtr = 0; dataCtr < nrDataPoints; dataCtr++) {
+            if (dataPoints.get(dataCtr) != plot.dataPoints.get(dataCtr)) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

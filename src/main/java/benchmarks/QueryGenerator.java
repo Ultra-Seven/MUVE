@@ -26,7 +26,7 @@ public class QueryGenerator {
     /**
      * The name of dataset.
      */
-    public final static String DATASET = "sample_311";
+    public final static String DATASET = "dob_job";
     /**
      * Number of queries for each dataset.
      */
@@ -34,7 +34,7 @@ public class QueryGenerator {
     /**
      * Number of predicates.
      */
-    public final static int NR_PREDICATES = 10;
+    public final static int NR_PREDICATES = 5;
 
     /**
      * Construct a SQL query by specifying given
@@ -83,6 +83,22 @@ public class QueryGenerator {
                         "cross_street_1", "cross_street_2", "intersection_street_1",
                         "intersection_street_2", "address_type", "city", "landmark", "status",
                         "community_board", "borough", "channel_type", "park_borough"};
+                isValid = Arrays.asList(columns).contains(columnName);
+                break;
+            }
+            case "sample_au": {
+                String[] columns = new String[]{"organisation_name", "first_name",
+                        "middle_name", "last_name", "authority_level", "department",
+                        "city", "state"};
+                isValid = Arrays.asList(columns).contains(columnName);
+                break;
+            }
+            case "dob_job": {
+                String[] columns = new String[]{"borough", "job_status_descrption",
+                        "action_month", "applicant_first_name", "applicant_last_name", "filing_month",
+                        "paid_month", "fully_paid_month", "assigned_month",
+                        "approved_month", "fee_status", "owner_type", "owner_first_name", "owner_last_name",
+                        "city"};
                 isValid = Arrays.asList(columns).contains(columnName);
                 break;
             }

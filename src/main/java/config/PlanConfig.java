@@ -28,7 +28,7 @@ public class PlanConfig {
     /**
      * Select first few queries that have the highest probability.
      */
-    public static int TOPK = 10;
+    public static int TOPK = 50;
     /**
      * Duration of reading each title.
      */
@@ -40,7 +40,7 @@ public class PlanConfig {
     /**
      * The significance of processing time in objective function.
      */
-    public static final double PROCESSING_WEIGHT = 0.5;
+    public static double PROCESSING_WEIGHT = 0.5;
     /**
      * The penalty time when the query is absent in the screen.
      */
@@ -49,4 +49,16 @@ public class PlanConfig {
      * The time out of planner.
      */
     public static final int TIME_OUT = 5000;
+    /**
+     * The maximum cost of processing queries.
+     */
+    public static int MAX_PROCESSING_COST = 5000;
+    /**
+     * The cost of one query.
+     */
+    public static final int QUERY_COST = 25;
+    /**
+     * The cost of one plot.
+     */
+    public static final int PLOT_COST = 50;
 }
