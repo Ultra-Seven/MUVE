@@ -14,12 +14,12 @@ import java.util.*;
 public class WaitTimeGurobiPlanner {
     private static final boolean PRINT_LOGS = false;
     public static boolean Processing_Constraint = false;
-    public static List<Map<String, List<DataPoint>>> plan(DataPoint[] scorePoints,
+    public static List<Map<Plot, List<DataPoint>>> plan(DataPoint[] scorePoints,
                                                           int[] maxIndices,
                                                           int nrRows, int R,
                                                           QueryFactory factory)
             throws IOException, SQLException, GRBException {
-        List<Map<String, List<DataPoint>>> results = new ArrayList<>();
+        List<Map<Plot, List<DataPoint>>> results = new ArrayList<>();
         // Generate a list of data points for query candidates
         int nrQueries = scorePoints.length;
         Map<Integer, Plot> idToPlots = new HashMap<>(nrQueries);
@@ -559,19 +559,25 @@ public class WaitTimeGurobiPlanner {
         }
         long optimizeMillis = System.currentTimeMillis();
         model.setObjective(expr, GRB.MINIMIZE);
-        model.set(GRB.DoubleParam.TimeLimit, 1.0);
+        model.set(GRB.DoubleParam.TimeLimit, PlanConfig.TIMEOUT);
         // Optimize model
         model.optimize();
 
+        Map<Integer, Plot> varIDToPlot = new HashMap<>(nrPlots);
         for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
-            Map<String, List<DataPoint>> resultsPerRow = new HashMap<>();
+            Map<Plot, List<DataPoint>> resultsPerRow = new HashMap<>();
             for (int plotCtr = 0; plotCtr < nrPlots; plotCtr++) {
                 int plotID = plotCtr * nrRows + rowCtr;
-                String name = vars[plotID].get(GRB.StringAttr.VarName);
+
+                int finalPlotCtr = plotCtr;
+                int plotIndex = plotIDToVarID.entrySet().stream().filter(e -> e.getValue() == finalPlotCtr)
+                        .findFirst().orElse(new AbstractMap.SimpleEntry<>(0, 0)).getKey();
+                Plot plot = idToPlots.get(plotIndex);
+                varIDToPlot.put(plotID, plot);
                 double value = vars[plotID].get(GRB.DoubleAttr.X);
                 if (value > Double.MIN_VALUE) {
                     String contextName = String.valueOf(plotID);
-                    resultsPerRow.put(contextName, new ArrayList<>());
+                    resultsPerRow.put(plot, new ArrayList<>());
                 }
             }
             results.add(resultsPerRow);
@@ -579,7 +585,7 @@ public class WaitTimeGurobiPlanner {
 
         // Highlighted queries
         for (int rowCtr = 0; rowCtr < nrRows; rowCtr++) {
-            Map<String, List<DataPoint>> resultsPerRow = results.get(rowCtr);
+            Map<Plot, List<DataPoint>> resultsPerRow = results.get(rowCtr);
             for (int queryCtr = 0; queryCtr < nrQueries; queryCtr++) {
                 int nrPlotsForQuery = queriesToPlots[queryCtr][0];
                 for (int plotCtr = 1; plotCtr <= nrPlotsForQuery; plotCtr++) {
@@ -591,10 +597,11 @@ public class WaitTimeGurobiPlanner {
                     if (value > Double.MIN_VALUE) {
                         int plotIndex = queriesToPlots[queryCtr][plotCtr];
                         int plotID = plotIndex * nrRows + rowCtr;
+                        Plot plot = varIDToPlot.get(plotID);
                         String contextName = String.valueOf(plotID);
-                        if (resultsPerRow.containsKey(contextName)) {
+                        if (resultsPerRow.containsKey(plot)) {
                             scorePoints[queryCtr].highlighted = true;
-                            resultsPerRow.get(contextName).add(scorePoints[queryCtr]);
+                            resultsPerRow.get(plot).add(scorePoints[queryCtr]);
                         }
                         else {
                             System.out.println("Wrong here!");
@@ -614,8 +621,9 @@ public class WaitTimeGurobiPlanner {
                         int plotIndex = queriesToPlots[queryCtr][plotCtr];
                         int plotID = plotIndex * nrRows + rowCtr;
                         String contextName = String.valueOf(plotID);
-                        if (resultsPerRow.containsKey(contextName)) {
-                            resultsPerRow.get(contextName).add(scorePoints[queryCtr]);
+                        Plot plot = varIDToPlot.get(plotID);
+                        if (resultsPerRow.containsKey(plot)) {
+                            resultsPerRow.get(plot).add(scorePoints[queryCtr]);
                         }
                         else {
                             System.out.println("Wrong here!");
@@ -694,11 +702,11 @@ public class WaitTimeGurobiPlanner {
         env.dispose();
 
         int rowCtr = 1;
-        for (Map<String, List<DataPoint>> resultsPerRow: results) {
+        for (Map<Plot, List<DataPoint>> resultsPerRow: results) {
             System.out.println("Row: " + rowCtr);
-            for (String groupVal: resultsPerRow.keySet()) {
-                System.out.println("Group by: " + groupVal);
-                for (DataPoint dataPoint: resultsPerRow.get(groupVal)) {
+            for (Plot plot: resultsPerRow.keySet()) {
+                System.out.println("Group by: " + plot);
+                for (DataPoint dataPoint: resultsPerRow.get(plot)) {
                     System.out.println(factory.queryString(dataPoint) +
                             "\tScore:" + dataPoint.probability + "\tRed:" + dataPoint.highlighted);
                 }

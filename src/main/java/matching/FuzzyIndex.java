@@ -1,10 +1,7 @@
 package matching;
 
 import matching.indexing.Indexer;
-import matching.schema.DobJob;
-import matching.schema.Sample311;
-import matching.schema.SampleAu;
-import matching.schema.Schema;
+import matching.schema.*;
 
 import java.io.*;
 
@@ -15,6 +12,7 @@ public class FuzzyIndex {
     public static final String AU_FILE = "/Users/tracy/Documents/PythonProject/xls2csv/csv/sample_au.csv";
     public static final String JOB_FILE = "/Users/tracy/Downloads/dob_job.csv";
     public static final String LARGE_JOB_FILE = "/Users/tracy/Downloads/DOB_Job_Application_Filings.csv";
+    public static final String DELAYED_FLIGHT = "/Users/tracy/Documents/PythonProject/flights/csv/delayed_flight.csv";
     public static final String FIELD_CONTENTS = "content";
     public static final String FIELD_PATH = "path";
 
@@ -22,8 +20,9 @@ public class FuzzyIndex {
     public static void main(String[] args) throws IOException {
 //        Schema schema = new Sample311();
 //        Schema schema = new SampleAu();
-        Schema schema = new DobJob();
-        String inputFilePath = LARGE_JOB_FILE;
+//        Schema schema = new DobJob();
+        Schema schema = new DelayedFlight();
+        String inputFilePath = DELAYED_FLIGHT;
         String[] name_arr = inputFilePath.split("/");
 
         String name = name_arr[name_arr.length - 1].split("\\.")[0];

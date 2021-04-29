@@ -4,10 +4,7 @@ import config.PlanConfig;
 import connector.DBConnector;
 import connector.PSQLConnector;
 import planning.query.QueryFactory;
-import planning.viz.DataPoint;
-import planning.viz.PlotGreedyPlanner;
-import planning.viz.WaitTimeGurobiPlanner;
-import planning.viz.WaitTimePlanner;
+import planning.viz.*;
 import stats.PlanStats;
 import stats.ProcessingStats;
 
@@ -36,7 +33,7 @@ public class PlannerBenchmark {
     public static boolean runMUVEExecuteQuery(String query, boolean isStatic) {
         try {
             QueryFactory queryFactory = new QueryFactory(query);
-            List<Map<String, List<DataPoint>>> optimalPlan =
+            List<Map<Plot, List<DataPoint>>> optimalPlan =
                     PlotGreedyPlanner.plan(queryFactory.queries, queryFactory.nrDistinctValues,
                     PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, isStatic);
             List<DataPoint> bestDataPoints = new ArrayList<>();
@@ -84,7 +81,7 @@ public class PlannerBenchmark {
     public static boolean runGUROBIExecuteQuery(String query) {
         try {
             QueryFactory queryFactory = new QueryFactory(query);
-            List<Map<String, List<DataPoint>>> optimalPlan =
+            List<Map<Plot, List<DataPoint>>> optimalPlan =
                     WaitTimeGurobiPlanner.plan(queryFactory.queries, queryFactory.nrDistinctValues,
                     PlanConfig.NR_ROWS, PlanConfig.R, queryFactory);
             List<DataPoint> bestDataPoints = new ArrayList<>();
@@ -441,6 +438,17 @@ public class PlannerBenchmark {
     }
 
     public static List<String> readQueries() throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader("./queries/" + dataset + "/queries.sql"));
+        String sql = reader.readLine();
+        List<String> queries = new ArrayList<>();
+        while (sql != null) {
+            queries.add(sql);
+            sql = reader.readLine();
+        }
+        return queries;
+    }
+
+    public static List<String> readDatasetQueries(String dataset) throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader("./queries/" + dataset + "/queries.sql"));
         String sql = reader.readLine();
         List<String> queries = new ArrayList<>();

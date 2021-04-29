@@ -56,7 +56,7 @@ window.onresize = () => {
 const config = new Config();
 const title = $(document).find("title").text();
 let engine;
-if (title === "Optimal Interfaces") {
+if (title === "MUVE Online Demo") {
     engine = new Engine(config);
 }
 else if (title === "Baseline") {
@@ -85,6 +85,23 @@ else if (mode === "study") {
 }
 else if (mode === "cognition") {
     const cognitionEngine = new Cognition(urlParams, engine, config);
+}
+else if (mode === "present") {
+    const query = "SELECT count(*) FROM delayed_flight WHERE \"city\" = 'Newark';";
+    const sender = urlParams.get('sender');
+    const element = $('#present').children().eq(sender);
+    $(element).prop('selected', true)
+        .trigger('change');
+
+    $("#present").prop('disabled', 'disabled');
+
+    const sentences = $("#spoken-text").val();
+    const name = "delayed_flight";
+    const presenter = sender;
+    engine.connector.sender.setCallback(engine.sender[presenter].callback);
+    $("#spoken-text").val("Find arrival city=Newark");
+    const params = [name, query, $("#viz").width(), $("#planner").val(), Date.now(), presenter];
+    engine.connector.send(params.join("|"));
 }
 else {
     // Empty string

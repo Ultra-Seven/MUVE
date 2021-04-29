@@ -23,7 +23,6 @@ class InputReader implements Iterator<Document[]> {
      * We are reusing single document object for obvious performance reasons.
      */
     private Document[] documents;
-
     /**
      * An array of fields. It's a de facto schema of the index.
      */
@@ -56,6 +55,10 @@ class InputReader implements Iterator<Document[]> {
      * Encode string by using double metaphone.
      */
     public DoubleMetaphone metaphone = new DoubleMetaphone();
+    /**
+     * Schema of dataset.
+     */
+    public Schema schema;
 
     /**
      * Initializes CSV file reader, document object and fields.
@@ -66,7 +69,7 @@ class InputReader implements Iterator<Document[]> {
     public InputReader(String inputFilePath, Schema schema) throws IOException {
         this.input = Components.CSV.getCsvParser(inputFilePath);
         this.iterator = input.iterator();
-
+        this.schema = schema;
         this.initFieldNames(schema);
         this.initDocumentFields();
     }
@@ -95,7 +98,7 @@ class InputReader implements Iterator<Document[]> {
             String text = row.get(fieldCtr);
             // Normalized the target value
             String value = preFunctions[fieldCtr].apply(Preprocessing.toLowerCase().apply(text));
-            if (!this.contents[fieldCtr].contains(text)) {
+            if (!this.contents[fieldCtr].contains(text) && this.schema.types[fieldCtr] != ElementType.NONE) {
                 this.fields[fieldCtr].setStringValue(value);
                 this.texts[fieldCtr].setStringValue(text);
                 this.contents[fieldCtr].add(text);

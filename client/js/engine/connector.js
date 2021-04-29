@@ -1,3 +1,5 @@
+import DefaultSender from "./defaultSender";
+
 class Connector {
     constructor(params) {
         const url = params["url"];
@@ -35,6 +37,10 @@ class WebSocketSender{
     constructor(URL, callback) {
         this.url = URL;
         this.ws = new WebSocket("wss://" + this.url);
+        this.ws.onmessage = callback;
+    }
+
+    setCallback(callback) {
         this.ws.onmessage = callback;
     }
 

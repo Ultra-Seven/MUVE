@@ -12,12 +12,12 @@ import java.sql.SQLException;
 import java.util.*;
 
 public class PlotGreedyPlanner {
-    public static List<Map<String, List<DataPoint>>> plan(DataPoint[] scorePoints,
+    public static List<Map<Plot, List<DataPoint>>> plan(DataPoint[] scorePoints,
                                                                int[] maxIndices,
                                                                int nrRows, int R,
                                                                QueryFactory factory,
                                                           boolean isStatic) throws IOException, SQLException {
-        List<Map<String, List<DataPoint>>> results = new ArrayList<>();
+        List<Map<Plot, List<DataPoint>>> results = new ArrayList<>();
         // Generate a list of data points for query candidates
         int nrQueries = scorePoints.length;
         long startMillis = System.currentTimeMillis();
@@ -166,11 +166,11 @@ public class PlotGreedyPlanner {
             timeSaving += timeSavingForRow;
             pixels = 0;
             // Materialize the result of output plan
-            Map<String, List<DataPoint>> resultsPerRow = new HashMap<>();
+            Map<Plot, List<DataPoint>> resultsPerRow = new HashMap<>();
             for (int plotCtr = offset; plotCtr < bestPlots.size(); plotCtr++) {
                 Plot bestPlot = bestPlots.get(plotCtr);
                 String contextName = String.valueOf(bestPlot.plotID);
-                resultsPerRow.put(contextName, bestPlot.dataPoints);
+                resultsPerRow.put(bestPlot, bestPlot.dataPoints);
             }
             offset = bestPlots.size();
             results.add(resultsPerRow);
@@ -239,18 +239,18 @@ public class PlotGreedyPlanner {
 
         System.out.println("Cost: " + PlanStats.waitTime);
 
-        int rowCtr = 0;
-        for (Map<String, List<DataPoint>> resultsPerRow: results) {
-            System.out.println("Row: " + rowCtr);
-            for (String groupVal: resultsPerRow.keySet()) {
-                System.out.println("Group by: " + groupVal);
-                for (DataPoint dataPoint: resultsPerRow.get(groupVal)) {
-                    System.out.println(factory.queryString(dataPoint) +
-                            "\tScore:" + dataPoint.probability + "\tHighlighted: " + dataPoint.highlighted);
-                }
-            }
-            rowCtr++;
-        }
+//        int rowCtr = 0;
+//        for (Map<Plot, List<DataPoint>> resultsPerRow: results) {
+//            System.out.println("Row: " + rowCtr);
+//            for (Plot plot: resultsPerRow.keySet()) {
+//                System.out.println("Plot: " + plot);
+//                for (DataPoint dataPoint: resultsPerRow.get(plot)) {
+//                    System.out.println(factory.queryString(dataPoint) +
+//                            "\tScore:" + dataPoint.probability + "\tHighlighted: " + dataPoint.highlighted);
+//                }
+//            }
+//            rowCtr++;
+//        }
 
         return results;
     }
@@ -419,7 +419,7 @@ public class PlotGreedyPlanner {
 
 
     public static void main(String[] args) throws IOException, ParseException, JSQLParserException, SQLException {
-        String query = "SELECT count(*) FROM dob_job WHERE \"city\" = 'Bronx' and \"city\"=\"borough\";";
+        String query = "SELECT count(*) FROM dob_job WHERE \"city\" = 'BRONX';";
         QueryFactory queryFactory = new QueryFactory(query);
 
         plan(queryFactory.queries, queryFactory.nrDistinctValues, 2, PlanConfig.R, queryFactory, true);

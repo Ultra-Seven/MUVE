@@ -12,7 +12,8 @@ public enum ElementType {
     PHONE,
     NUMBER,
     DATE,
-    AGE;
+    AGE,
+    NONE;
 
     private ElementType() {
     }

@@ -40,7 +40,7 @@ public class PlanConfig {
     /**
      * The significance of processing time in objective function.
      */
-    public static double PROCESSING_WEIGHT = 0.5;
+    public static double PROCESSING_WEIGHT = 0.0;
     /**
      * The penalty time when the query is absent in the screen.
      */
@@ -61,4 +61,12 @@ public class PlanConfig {
      * The cost of one plot.
      */
     public static final int PLOT_COST = 50;
+    /**
+     * The ratio of sampling data.
+     */
+    public static double SAMPLING_RATE = 5;
+    /**
+     * Threshold timeout for ILP algorithm.
+     */
+    public static double TIMEOUT = 1.0;
 }

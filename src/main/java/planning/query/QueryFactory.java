@@ -280,6 +280,53 @@ public class QueryFactory {
         return combinedPredicate;
     }
 
+    public String plotQuery(Plot plot, String query, boolean isSampling) {
+        String sql = "";
+        // TODO: find the correct index
+        int indexPos = Math.max(this.columnIndex.indexOf(plot.freeIndex),
+                this.valueIndex.indexOf(plot.freeIndex));
+        int columnIndex = this.columnIndex.get(indexPos);
+        int valueIndex = this.valueIndex.get(indexPos);
+        Map<Integer, List<Integer>> columnToValues = new HashMap<>(termToKey[columnIndex].size());
+        for (DataPoint dataPoint: plot.dataPoints) {
+            int columnTerm = dataPoint.vector[columnIndex];
+            int valueTerm = dataPoint.vector[valueIndex];
+            columnToValues.putIfAbsent(columnTerm, new ArrayList<>());
+            columnToValues.get(columnTerm).add(valueTerm);
+        }
+        List<String> predicates = new ArrayList<>(columnToValues.size());
+        for (Map.Entry<Integer, List<Integer>> entry: columnToValues.entrySet()) {
+            String columnName = keyToTerms[columnIndex][entry.getKey()];
+            String values = entry.getValue().stream()
+                    .map(v -> "'" + keyToTerms[valueIndex][v].replace("'", " ") + "'") //i is an int, not an Integer
+                    .collect(Collectors.joining(", "));
+            String predicate = "\"" + columnName + "\" in (" + values + ")";
+            predicates.add(predicate);
+        }
+        String sampling = isSampling ? (" TABLESAMPLE SYSTEM(" + PlanConfig.SAMPLING_RATE + ")") : "";
+        String expand = isSampling ? (" * " + (100 / PlanConfig.SAMPLING_RATE)) : "";
+        if (columnToValues.size() == 1) {
+            String columnName = keyToTerms[columnIndex][columnToValues.keySet().iterator().next()];
+            String select = query.split("SELECT ")[1].split(" FROM ")[0] + expand + ", " + "\"" + columnName + "\"";
+            sql = "SELECT " + select + " FROM " + terms.get(fromPos + 1) + sampling
+                    + " WHERE " + predicates.get(0) + " GROUP BY " + "\"" + columnName + "\"" + ";";
+        }
+        else {
+            List<String> cases = new ArrayList<>();
+            for (DataPoint dataPoint: plot.dataPoints) {
+                int columnTerm = dataPoint.vector[columnIndex];
+                int valueTerm = dataPoint.vector[valueIndex];
+                String columnName = keyToTerms[columnIndex][columnTerm];
+                String valueName = keyToTerms[valueIndex][valueTerm];
+                String predicate = "\"" + columnName + "\"='" + valueName + "'";
+                cases.add("SUM (CASE WHEN " + predicate + " THEN 1 ELSE 0 END)" + expand);
+            }
+            sql = "SELECT " + String.join(",\n", cases) + " FROM " + terms.get(fromPos + 1) + sampling
+                    + " WHERE " + String.join(" OR ", predicates) + ";";
+        }
+        return sql;
+    }
+
     public String mergeQueries(List<DataPoint> dataPoints, String query) {
         String sql = "";
         int columnIndex = this.columnIndex.get(0);

@@ -25,7 +25,8 @@ abstract class Components {
          * @throws IOException
          */
         public static CSVParser getCsvParser(String inputFilePath) throws IOException {
-            return CSVParser.parse(new File(inputFilePath), Charset.defaultCharset(), CSVFormat.RFC4180.withHeader());
+            return CSVParser.parse(new File(inputFilePath), Charset.defaultCharset(),
+                    CSVFormat.newFormat(',').withQuote('|').withHeader());
         }
     }
 

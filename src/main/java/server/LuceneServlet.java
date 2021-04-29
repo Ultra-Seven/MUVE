@@ -2,6 +2,7 @@ package server;
 
 import config.HostConfig;
 import config.PlanConfig;
+import gurobi.GRBException;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
@@ -25,14 +26,14 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import planning.query.QueryFactory;
-import planning.viz.GreedyPlanner;
-import planning.viz.SimpleVizPlanner;
+import planning.viz.*;
 
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -72,13 +73,13 @@ public class LuceneServlet {
         Javalin app = Javalin.create(config -> {
             config.server(() -> server);
             config.addStaticFiles("./html", Location.EXTERNAL);
-            config.addSinglePageRoot("/", "./html/sqlova.html", Location.EXTERNAL);
+            config.addSinglePageRoot("/", "./html/muve.html", Location.EXTERNAL);
         }).start(HostConfig.SERVER_PORT);
 
-        String url = HostConfig.DB_HOST;
+        String url = HostConfig.PG_HOST;
         Properties props = new Properties();
-        props.setProperty("user", "monetdb");
-        props.setProperty("password", "monetdb");
+        props.setProperty("user", "postgres");
+        props.setProperty("password", "postgres");
         connection = DriverManager.getConnection(url, props);
 
         app.post("/query", ctx -> {
@@ -289,25 +290,544 @@ public class LuceneServlet {
                 }
             });
         });
+
+        app.ws("/stream", ws -> {
+            ws.onConnect(ctx -> {
+                String username = "User" + nextUserNumber++;
+                userUsernameMap.put(ctx, username);
+            });
+            ws.onClose(ctx -> {
+                userUsernameMap.remove(ctx);
+            });
+            ws.onMessage(ctx -> {
+                String message = ctx.message();
+                String[] query_list = message.split("\\|");
+                List<String> commands = new ArrayList<>(6);
+                commands.add("curl");
+                commands.add("-F");
+                commands.add("t=" + query_list[0]);
+                commands.add("-F");
+                commands.add("q=" + query_list[1]);
+                commands.add(HostConfig.MODEL_HOST);
+                String presenter = query_list[5];
+//
+//                int width = (int) Math.floor(Double.parseDouble(query_list[2]));
+//
+//                ProcessBuilder processBuilder = new ProcessBuilder(commands);
+//                Process process = processBuilder.start();
+//
+//                String result = new BufferedReader(
+//                        new InputStreamReader(process.getInputStream()))
+//                        .lines()
+//                        .collect(Collectors.joining("\n"));
+//                System.out.println(result);
+                String query = query_list[1];
+
+                try {
+                    if (presenter.equals("incremental")) {
+                        incrementalResults(ctx, query, "dob_job", 900, query_list[3], query_list[4]);
+                    }
+                    else if (presenter.equals("approximate")) {
+                        approximateResults(ctx, query, "dob_job", 900, query_list[4]);
+                    }
+                    else if (presenter.equals("backup")) {
+                        ILPBackupSearch(ctx, query, "dob_job", 900, query_list[4]);
+                    }
+                    else {
+                        defaultResults(ctx, query, "dob_job", 900, query_list[3], query_list[4]);
+                    }
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                    System.out.println("Error");
+                    ctx.send("{\"data\": [], debug: {}");
+                }
+            });
+        });
     }
 
-//    private static void plannerResults(WsContext session,
-//                                      JSONObject queryTemplate,
-//                                      String dataset,
-//                                      int width,
-//                                      String planner) throws ParseException, JSQLParserException, IOException {
-//        JSONArray params = queryTemplate.getJSONArray("params");
-//        List<String> listParams = new ArrayList<>();
-//        for (int paramCtr = 0; paramCtr < params.length(); paramCtr++){
-//            listParams.add(params.getString(paramCtr));
+    private static void approximateResults(WsContext session,
+                                           String query,
+                                           String dataset,
+                                           int width, String time)
+            throws ParseException, JSQLParserException, IOException, SQLException {
+        QueryFactory queryFactory = new QueryFactory(query);
+//        queryFactory.queries[0].probability = 0.5;
+//        for (DataPoint dataPoint: queryFactory.queries) {
+//            if (dataPoint != queryFactory.queries[0]) {
+//                dataPoint.probability = (1 - 0.5) / (queryFactory.queries.length - 1);
+//            }
 //        }
-//        if (listParams.size() > 0) {
-//            // Parse query to template
-//            String sql = queryTemplate.getString("sql") + ";";
-//            QueryFactory queryFactory = new QueryFactory(sql);
-//            GreedyPlanner.plan(queryFactory.queries, )
+        List<Map<Plot, List<DataPoint>>> optimalPlan = PlotGreedyPlanner.plan(queryFactory.queries,
+                queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, false);
+        List<Plot> highlightedPlots = new ArrayList<>();
+        List<Plot> uncoloredPlots = new ArrayList<>();
+        JSONObject divInformation = new JSONObject();
+        JSONArray divTemplates = new JSONArray();
+        int id = 0;
+        Map<Plot, String> plotToName = new HashMap<>();
+        for (Map<Plot, List<DataPoint>> plotToPoints: optimalPlan) {
+            JSONArray highlightedDivs = new JSONArray();
+            JSONArray uncoloredDivs = new JSONArray();
+            int sumPixels = plotToPoints.values().stream().mapToInt(points ->
+                    points.size() * PlanConfig.B + PlanConfig.C).sum();
+
+            for (Plot plot: plotToPoints.keySet()) {
+                String name = "viz_" + id;
+                JSONObject divObj = new JSONObject();
+                divObj.put("name", name);
+                int pixels = (int) Math.round((plot.nrDataPoints * PlanConfig.B + PlanConfig.C + 0.0) / sumPixels * 90);
+                divObj.put("width", pixels);
+                if (plot.nrHighlighted > 0) {
+                    highlightedPlots.add(plot);
+                    highlightedDivs.put(divObj);
+                }
+                else {
+                    uncoloredPlots.add(plot);
+                    uncoloredDivs.put(divObj);
+                }
+                id++;
+                plotToName.put(plot, name);
+
+                // Sampling data
+                String mergedQuery = queryFactory.plotQuery(plot, query, true);
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(mergedQuery);
+
+                JSONArray result = new JSONArray();
+                int freeIndex = plot.freeIndex;
+                boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+                int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
+                        queryFactory.valueIndex.indexOf(freeIndex));
+                int columnIndex = queryFactory.columnIndex.get(indexPos);
+                int valueIndex = queryFactory.valueIndex.get(indexPos);
+                int[] vector = plot.dataPoints.get(0).vector;
+
+                String groupBy = isLiteral ? queryFactory.keyToTerms[valueIndex][vector[valueIndex]]
+                        : queryFactory.keyToTerms[columnIndex][vector[columnIndex]];
+                // A list of highlighted labels
+                List<String> highlightedValues = plot.dataPoints.stream()
+                        .filter(x -> x.highlighted)
+                        .map(x -> isLiteral ? queryFactory.keyToTerms[columnIndex][x.vector[columnIndex]]
+                                : queryFactory.keyToTerms[valueIndex][x.vector[valueIndex]]).collect(Collectors.toList());
+                if (isLiteral) {
+                    rs.next();
+                    for (int columnCtr = 1; columnCtr <= plot.nrDataPoints; columnCtr++) {
+                        String value = rs.getString(columnCtr);
+                        String targetName = queryFactory.keyToTerms[columnIndex]
+                                [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
+                        JSONObject valueObj = new JSONObject();
+                        valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                .put("results", value).put("type", "agg")
+                                .put("label", targetName)
+                                .put("context", "value")
+                                .put("groupby", groupBy);
+                        result.put(valueObj);
+                    }
+                }
+                else {
+                    Set<String> containKeys = new HashSet<>();
+                    while (rs.next()) {
+                        String value = rs.getString(1);
+                        String targetName = rs.getString(2);
+                        JSONObject valueObj = new JSONObject();
+                        // Validate number
+                        try {
+                            value = value.equals("null") ? "0" : value;
+                            value = new BigDecimal(value).toPlainString();
+                        } catch (Exception ignored) {
+
+                        }
+                        valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                .put("results", value).put("type", "agg")
+                                .put("label", targetName)
+                                .put("context", "column")
+                                .put("groupby", groupBy);
+                        containKeys.add(targetName);
+                        result.put(valueObj);
+                    }
+                    plot.dataPoints.stream().map(x -> queryFactory.keyToTerms[valueIndex]
+                            [x.vector[valueIndex]])
+                            .filter(x -> !containKeys.contains(x))
+                            .forEach(x -> result.put(new JSONObject().put("highlighted", highlightedValues.contains(x))
+                                    .put("results", 0).put("type", "agg")
+                                    .put("label", x)
+                                    .put("context", "column")
+                                    .put("groupby", groupBy)));
+                }
+                divObj.put("result", result);
+            }
+            highlightedDivs.putAll(uncoloredDivs);
+            divTemplates.put(highlightedDivs);
+        }
+        divInformation.put("data", divTemplates);
+        divInformation.put("timestamp", time);
+        // Send div specifications
+        session.send(divInformation.toString());
+        highlightedPlots.addAll(uncoloredPlots);
+        for (Plot plot: highlightedPlots) {
+            String mergedQuery = queryFactory.plotQuery(plot, query, false);
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(mergedQuery);
+
+            JSONArray result = new JSONArray();
+            int freeIndex = plot.freeIndex;
+            boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+            int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
+                    queryFactory.valueIndex.indexOf(freeIndex));
+            int columnIndex = queryFactory.columnIndex.get(indexPos);
+            int valueIndex = queryFactory.valueIndex.get(indexPos);
+            int[] vector = plot.dataPoints.get(0).vector;
+
+            String groupBy = isLiteral ? queryFactory.keyToTerms[valueIndex][vector[valueIndex]]
+                    : queryFactory.keyToTerms[columnIndex][vector[columnIndex]];
+            // A list of highlighted labels
+            List<String> highlightedValues = plot.dataPoints.stream()
+                    .filter(x -> x.highlighted)
+                    .map(x -> isLiteral ? queryFactory.keyToTerms[columnIndex][x.vector[columnIndex]]
+                            : queryFactory.keyToTerms[valueIndex][x.vector[valueIndex]]).collect(Collectors.toList());
+            if (isLiteral) {
+                rs.next();
+                for (int columnCtr = 1; columnCtr <= plot.nrDataPoints; columnCtr++) {
+                    String value = rs.getString(columnCtr);
+                    String targetName = queryFactory.keyToTerms[columnIndex]
+                            [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
+                    JSONObject valueObj = new JSONObject();
+                    valueObj.put("highlighted", highlightedValues.contains(targetName))
+                            .put("results", value).put("type", "agg")
+                            .put("label", targetName)
+                            .put("context", "value")
+                            .put("groupby", groupBy);
+                    result.put(valueObj);
+                }
+            }
+            else {
+                while (rs.next()) {
+                    String value = rs.getString(1);
+                    String targetName = rs.getString(2);
+                    JSONObject valueObj = new JSONObject();
+                    // Validate number
+                    try {
+                        value = value.equals("null") ? "0" : value;
+                        value = new BigDecimal(value).toPlainString();
+                    } catch (Exception ignored) {
+
+                    }
+                    valueObj.put("highlighted", highlightedValues.contains(targetName))
+                            .put("results", value).put("type", "agg")
+                            .put("label", targetName)
+                            .put("context", "column")
+                            .put("groupby", groupBy);
+                    result.put(valueObj);
+                }
+            }
+            JSONObject plotInformation = new JSONObject();
+            plotInformation.put("data", result);
+            plotInformation.put("name", plotToName.get(plot));
+            plotInformation.put("timestamp", time);
+            session.send(plotInformation.toString());
+        }
+    }
+
+    private static void incrementalResults(WsContext session,
+                                           String query,
+                                           String dataset,
+                                           int width,
+                                           String planner, String time)
+            throws ParseException, JSQLParserException, IOException, SQLException {
+        QueryFactory queryFactory = new QueryFactory(query);
+//        queryFactory.queries[0].probability = 0.5;
+//        for (DataPoint dataPoint: queryFactory.queries) {
+//            if (dataPoint != queryFactory.queries[0]) {
+//                dataPoint.probability = (1 - 0.5) / (queryFactory.queries.length - 1);
+//            }
 //        }
-//    }
+        List<Map<Plot, List<DataPoint>>> optimalPlan = PlotGreedyPlanner.plan(queryFactory.queries,
+                queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, false);
+        List<Plot> highlightedPlots = new ArrayList<>();
+        List<Plot> uncoloredPlots = new ArrayList<>();
+        JSONObject divInformation = new JSONObject();
+        JSONArray divTemplates = new JSONArray();
+        int id = 0;
+        Map<Plot, String> plotToName = new HashMap<>();
+        for (Map<Plot, List<DataPoint>> plotToPoints: optimalPlan) {
+            JSONArray highlightedDivs = new JSONArray();
+            JSONArray uncoloredDivs = new JSONArray();
+            int sumPixels = plotToPoints.values().stream().mapToInt(points ->
+                    points.size() * PlanConfig.B + PlanConfig.C).sum();
+
+            for (Plot plot: plotToPoints.keySet()) {
+                String name = "viz_" + id;
+                JSONObject divObj = new JSONObject();
+                divObj.put("name", name);
+                int pixels = (int) Math.round((plot.nrDataPoints * PlanConfig.B + PlanConfig.C + 0.0) / sumPixels * 90);
+                divObj.put("width", pixels);
+                if (plot.nrHighlighted > 0) {
+                    highlightedPlots.add(plot);
+                    highlightedDivs.put(divObj);
+                }
+                else {
+                    uncoloredPlots.add(plot);
+                    uncoloredDivs.put(divObj);
+                }
+                id++;
+                plotToName.put(plot, name);
+            }
+            highlightedDivs.putAll(uncoloredDivs);
+            divTemplates.put(highlightedDivs);
+        }
+        divInformation.put("data", divTemplates);
+        divInformation.put("timestamp", time);
+        // Send div specifications
+        session.send(divInformation.toString());
+        highlightedPlots.addAll(uncoloredPlots);
+        for (Plot plot: highlightedPlots) {
+            String mergedQuery = queryFactory.plotQuery(plot, query, false);
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(mergedQuery);
+
+            JSONArray result = new JSONArray();
+            int freeIndex = plot.freeIndex;
+            boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+            int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
+                    queryFactory.valueIndex.indexOf(freeIndex));
+            int columnIndex = queryFactory.columnIndex.get(indexPos);
+            int valueIndex = queryFactory.valueIndex.get(indexPos);
+            int[] vector = plot.dataPoints.get(0).vector;
+
+            String groupBy = isLiteral ? queryFactory.keyToTerms[valueIndex][vector[valueIndex]]
+                    : queryFactory.keyToTerms[columnIndex][vector[columnIndex]];
+            // A list of highlighted labels
+            List<String> highlightedValues = plot.dataPoints.stream()
+                    .filter(x -> x.highlighted)
+                    .map(x -> isLiteral ? queryFactory.keyToTerms[columnIndex][x.vector[columnIndex]]
+                            : queryFactory.keyToTerms[valueIndex][x.vector[valueIndex]]).collect(Collectors.toList());
+            if (isLiteral) {
+                rs.next();
+                for (int columnCtr = 1; columnCtr <= plot.nrDataPoints; columnCtr++) {
+                    String value = rs.getString(columnCtr);
+                    String targetName = queryFactory.keyToTerms[columnIndex]
+                            [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
+                    JSONObject valueObj = new JSONObject();
+                    valueObj.put("highlighted", highlightedValues.contains(targetName))
+                            .put("results", value).put("type", "agg")
+                            .put("label", targetName)
+                            .put("context", "value")
+                            .put("groupby", groupBy);
+                    result.put(valueObj);
+                }
+            }
+            else {
+                while (rs.next()) {
+                    String value = rs.getString(1);
+                    String targetName = rs.getString(2);
+                    JSONObject valueObj = new JSONObject();
+                    // Validate number
+                    try {
+                        value = value.equals("null") ? "0" : value;
+                        value = new BigDecimal(value).toPlainString();
+                    } catch (Exception ignored) {
+
+                    }
+                    valueObj.put("highlighted", highlightedValues.contains(targetName))
+                            .put("results", value).put("type", "agg")
+                            .put("label", targetName)
+                            .put("context", "column")
+                            .put("groupby", groupBy);
+                    result.put(valueObj);
+                }
+            }
+            JSONObject plotInformation = new JSONObject();
+            plotInformation.put("data", result);
+            plotInformation.put("name", plotToName.get(plot));
+            plotInformation.put("timestamp", time);
+            session.send(plotInformation.toString());
+            System.out.println(plotInformation);
+        }
+    }
+
+    private static void defaultResults(WsContext session,
+                                           String query,
+                                           String dataset,
+                                           int width,
+                                           String planner, String time)
+            throws ParseException, JSQLParserException, IOException, SQLException {
+        QueryFactory queryFactory = new QueryFactory(query);
+        List<Map<Plot, List<DataPoint>>> optimalPlan = PlotGreedyPlanner.plan(queryFactory.queries,
+                queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, false);
+        JSONArray resultRows = new JSONArray();
+        JSONObject resultObj = new JSONObject();
+        for (Map<Plot, List<DataPoint>> plotListMap: optimalPlan) {
+            JSONArray resultArray = new JSONArray();
+            int sumPixels = plotListMap.values().stream().mapToInt(points ->
+                    points.size() * PlanConfig.B + PlanConfig.C).sum();
+            for (Plot plot: plotListMap.keySet()) {
+                int pixels = (int) Math.round((plot.nrDataPoints * PlanConfig.B + PlanConfig.C + 0.0) / sumPixels * 90);
+                String mergedQuery = queryFactory.plotQuery(plot, query, false);
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(mergedQuery);
+                JSONArray result = new JSONArray();
+
+                int freeIndex = plot.freeIndex;
+                boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+                int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
+                        queryFactory.valueIndex.indexOf(freeIndex));
+                int columnIndex = queryFactory.columnIndex.get(indexPos);
+                int valueIndex = queryFactory.valueIndex.get(indexPos);
+                int[] vector = plot.dataPoints.get(0).vector;
+
+                String groupBy = isLiteral ? queryFactory.keyToTerms[valueIndex][vector[valueIndex]]
+                        : queryFactory.keyToTerms[columnIndex][vector[columnIndex]];
+                // A list of highlighted labels
+                List<String> highlightedValues = plot.dataPoints.stream()
+                        .filter(x -> x.highlighted)
+                        .map(x -> isLiteral ? queryFactory.keyToTerms[columnIndex][x.vector[columnIndex]]
+                                : queryFactory.keyToTerms[valueIndex][x.vector[valueIndex]]).collect(Collectors.toList());
+                if (isLiteral) {
+                    rs.next();
+                    for (int columnCtr = 1; columnCtr <= plot.nrDataPoints; columnCtr++) {
+                        String value = rs.getString(columnCtr);
+                        String targetName = queryFactory.keyToTerms[columnIndex]
+                                [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
+                        JSONObject valueObj = new JSONObject();
+                        valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                .put("results", value).put("type", "agg")
+                                .put("label", targetName)
+                                .put("context", "value")
+                                .put("groupby", groupBy);
+                        result.put(valueObj);
+                    }
+                }
+                else {
+                    while (rs.next()) {
+                        String value = rs.getString(1);
+                        String targetName = rs.getString(2);
+                        JSONObject valueObj = new JSONObject();
+                        // Validate number
+                        try {
+                            value = value.equals("null") ? "0" : value;
+                            value = new BigDecimal(value).toPlainString();
+                        } catch (Exception ignored) {
+
+                        }
+
+                        valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                .put("results", value).put("type", "agg")
+                                .put("label", targetName)
+                                .put("context", "column")
+                                .put("groupby", groupBy);
+                        result.put(valueObj);
+                    }
+                }
+                JSONObject plotInformation = new JSONObject();
+                plotInformation.put("data", result);
+                plotInformation.put("width", pixels);
+
+                resultArray.put(plotInformation);
+            }
+            resultRows.put(resultArray);
+        }
+        resultObj.put("data", resultRows);
+        session.send(resultObj.toString());
+    }
+
+    private static void ILPBackupSearch(WsContext session,
+                                        String query,
+                                        String dataset,
+                                        int width,
+                                        String time)
+            throws JSQLParserException, IOException, ParseException, SQLException, GRBException {
+        QueryFactory queryFactory = new QueryFactory(query);
+        double[] timeouts = new double[]{0.256, 0.512, 1.024};
+
+        for (Double timeout: timeouts) {
+            PlanConfig.TIMEOUT = timeout;
+            List<Map<Plot, List<DataPoint>>> optimalPlan = WaitTimeGurobiPlanner.plan(queryFactory.queries,
+                    queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory);
+            JSONArray resultRows = new JSONArray();
+            JSONObject resultObj = new JSONObject();
+            for (Map<Plot, List<DataPoint>> plotListMap: optimalPlan) {
+                JSONArray resultArray = new JSONArray();
+                int sumPixels = plotListMap.values().stream().mapToInt(points ->
+                        points.size() * PlanConfig.B + PlanConfig.C).sum();
+                for (Plot plot: plotListMap.keySet()) {
+                    List<DataPoint> points = plotListMap.get(plot);
+                    plot.dataPoints.clear();
+                    plot.nrDataPoints = 0;
+                    points.forEach(plot::addDataPoint);
+
+                    int nrSize = points.size();
+                    int pixels = (int) Math.round((nrSize * PlanConfig.B + PlanConfig.C + 0.0) / sumPixels * 90);
+                    String mergedQuery = queryFactory.plotQuery(plot, query, false);
+                    Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(mergedQuery);
+                    JSONArray result = new JSONArray();
+
+                    int freeIndex = plot.freeIndex;
+                    boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+                    int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
+                            queryFactory.valueIndex.indexOf(freeIndex));
+                    int columnIndex = queryFactory.columnIndex.get(indexPos);
+                    int valueIndex = queryFactory.valueIndex.get(indexPos);
+                    int[] vector = plot.dataPoints.get(0).vector;
+
+                    String groupBy = isLiteral ? queryFactory.keyToTerms[valueIndex][vector[valueIndex]]
+                            : queryFactory.keyToTerms[columnIndex][vector[columnIndex]];
+                    // A list of highlighted labels
+                    List<String> highlightedValues = plot.dataPoints.stream()
+                            .filter(x -> x.highlighted)
+                            .map(x -> isLiteral ? queryFactory.keyToTerms[columnIndex][x.vector[columnIndex]]
+                                    : queryFactory.keyToTerms[valueIndex][x.vector[valueIndex]]).collect(Collectors.toList());
+                    if (isLiteral) {
+                        rs.next();
+                        for (int columnCtr = 1; columnCtr <= plot.nrDataPoints; columnCtr++) {
+                            String value = rs.getString(columnCtr);
+                            String targetName = queryFactory.keyToTerms[columnIndex]
+                                    [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
+                            JSONObject valueObj = new JSONObject();
+                            valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                    .put("results", value).put("type", "agg")
+                                    .put("label", targetName)
+                                    .put("context", "value")
+                                    .put("groupby", groupBy);
+                            result.put(valueObj);
+                        }
+                    }
+                    else {
+                        while (rs.next()) {
+                            String value = rs.getString(1);
+                            String targetName = rs.getString(2);
+                            JSONObject valueObj = new JSONObject();
+                            // Validate number
+                            try {
+                                value = value.equals("null") ? "0" : value;
+                                value = new BigDecimal(value).toPlainString();
+                            } catch (Exception ignored) {
+
+                            }
+
+                            valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                    .put("results", value).put("type", "agg")
+                                    .put("label", targetName)
+                                    .put("context", "column")
+                                    .put("groupby", groupBy);
+                            result.put(valueObj);
+                        }
+                    }
+                    JSONObject plotInformation = new JSONObject();
+                    plotInformation.put("data", result);
+                    plotInformation.put("width", pixels);
+
+                    resultArray.put(plotInformation);
+                }
+                resultRows.put(resultArray);
+            }
+            resultObj.put("data", resultRows);
+            session.send(resultObj.toString());
+        }
+    }
+
+
 
     // Sends a message from one user to all users, along with a list of current usernames
     private static void searchResults(WsContext session,
@@ -339,6 +859,8 @@ public class LuceneServlet {
             // Matching all parameters in Lucene. TODO: support more parameters
             int R = Math.min(PlanConfig.R, width);
             JSONObject debugObj = new JSONObject();
+
+
             for (int paramCtr = 0; paramCtr < listParams.size(); paramCtr++) {
                 String param = listParams.get(paramCtr);
                 Column column = columns.get(paramCtr);
@@ -453,7 +975,7 @@ public class LuceneServlet {
                                     .put("rank", rank).put("score", score)
                                     .put("results", resultJson).put("type", isAgg ? "agg" : "rows")
                                     .put("label", labelName).put("context", isLiteral ? "value" : "column");
-                            System.out.println(result.toString());
+                            System.out.println(result);
                             resultArray.put(result);
                             rs.close();
                             preparedStatement.close();

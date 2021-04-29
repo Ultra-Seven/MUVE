@@ -26,7 +26,7 @@ public class QueryGenerator {
     /**
      * The name of dataset.
      */
-    public final static String DATASET = "dob_job";
+    public final static String DATASET = "delayed_flight";
     /**
      * Number of queries for each dataset.
      */
@@ -102,6 +102,14 @@ public class QueryGenerator {
                 isValid = Arrays.asList(columns).contains(columnName);
                 break;
             }
+            case "delayed_flight": {
+                String[] columns = new String[]{"month", "airline",
+                        "departure_size", "departure_airport", "departure_state", "departure_city",
+                        "arrival_size", "arrival_airport", "arrival_state",
+                        "arrival_city"};
+                isValid = Arrays.asList(columns).contains(columnName);
+                break;
+            }
         }
 
         return isValid;
@@ -128,7 +136,7 @@ public class QueryGenerator {
             ScoreDoc scoreDoc = scoreDocs[docCtr];
             Document doc = reader.document(scoreDoc.doc);
             String columnName = doc.get("column");
-            String textValue = doc.get("text");
+            String textValue = doc.get("text").replace("'", "\\'");
             if (isValidColumn(columnName) && !textValue.trim().isEmpty()) {
                 if (!columnToDocuments.containsKey(columnName)) {
                     columnToDocuments.put(columnName, new ArrayList<>());
