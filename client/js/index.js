@@ -87,19 +87,54 @@ else if (mode === "cognition") {
     const cognitionEngine = new Cognition(urlParams, engine, config);
 }
 else if (mode === "present") {
-    const query = "SELECT count(*) FROM delayed_flight WHERE \"city\" = 'Newark';";
     const sender = urlParams.get('sender');
-    const element = $('#present').children().eq(sender);
-    $(element).prop('selected', true)
-        .trigger('change');
+    const dataset = urlParams.get('dataset');
+    const queryID = parseInt(urlParams.get('query'));
+
+    const queries = {
+        "large": [
+            "SELECT count(*) FROM delayed_flight WHERE \"departure_city\" = 'Newark';",
+            "SELECT count(*) FROM delayed_flight WHERE \"arrival_city\" = 'Newburgh';",
+            "SELECT count(*) FROM delayed_flight WHERE \"departure_city\" = 'Chicago';",
+            "SELECT count(*) FROM delayed_flight WHERE \"arrival_city\" = 'Washington';",
+            "SELECT count(*) FROM delayed_flight WHERE \"departure_state\" = 'Florida';"
+        ],
+        "small": [
+            "SELECT count(*) FROM sample_311 WHERE \"borough\" = 'BRONX';",
+            "SELECT count(*) FROM sample_311 WHERE \"landmark\" = 'OCEAN AVENUE';",
+            "SELECT count(*) FROM sample_311 WHERE \"descriptor type\" = 'Loud Talking';",
+            "SELECT count(*) FROM sample_311 WHERE \"park borough\" = 'QUEENS';",
+            "SELECT count(*) FROM sample_311 WHERE \"cross street 2\" = 'MANHATTAN';"
+        ]
+    };
+
+    const text = {
+        "large": [
+            "Find departure city=Newark;",
+            "Find arrival city=Newburgh;",
+            "Find departure city=Chicago;",
+            "Find arrival city=Washington;",
+            "Find departure state=Florida;"
+        ],
+        "small": [
+            "Find borough=BRONX;",
+            "Find landmark=OCEAN AVENUE;",
+            "Find descriptor type=Loud Talking;",
+            "Find park borough=QUEENS;",
+            "Find cross street 2=MANHATTAN AVENUE;"
+        ]
+    };
+
+    const query = queries[dataset][queryID];
+    const explanation = text[dataset][queryID];
+
 
     $("#present").prop('disabled', 'disabled');
 
-    const sentences = $("#spoken-text").val();
-    const name = "delayed_flight";
+    const name = dataset === "large" ? "delayed_flight" : "sample_311";
     const presenter = sender;
     engine.connector.sender.setCallback(engine.sender[presenter].callback);
-    $("#spoken-text").val("Find arrival city=Newark");
+    $("#spoken-text").val(explanation);
     const params = [name, query, $("#viz").width(), $("#planner").val(), Date.now(), presenter];
     engine.connector.send(params.join("|"));
 }

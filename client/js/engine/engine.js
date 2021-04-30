@@ -83,7 +83,9 @@ class Engine {
 
                 const barChart = new Barchart(barName, this);
                 charts.push(barChart);
-                barChart.drawBarChartUsingChartJS(data);
+                if (data.length > 0) {
+                    barChart.drawBarChartUsingChartJS(data);
+                }
                 // Title name
                 // const key = Object.keys(data[0]["results"])[0];
                 // const key_arr = _.filter(key.split(/[()]+/), element => element !== "");

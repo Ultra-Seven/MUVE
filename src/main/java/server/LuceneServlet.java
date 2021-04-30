@@ -396,7 +396,7 @@ public class LuceneServlet {
 
                 JSONArray result = new JSONArray();
                 int freeIndex = plot.freeIndex;
-                boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+                boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex) && plot.nrDataPoints > 1;
                 int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
                         queryFactory.valueIndex.indexOf(freeIndex));
                 int columnIndex = queryFactory.columnIndex.get(indexPos);
@@ -472,7 +472,7 @@ public class LuceneServlet {
 
             JSONArray result = new JSONArray();
             int freeIndex = plot.freeIndex;
-            boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+            boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex) && plot.nrDataPoints > 1;
             int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
                     queryFactory.valueIndex.indexOf(freeIndex));
             int columnIndex = queryFactory.columnIndex.get(indexPos);
@@ -520,6 +520,9 @@ public class LuceneServlet {
                             .put("groupby", groupBy);
                     result.put(valueObj);
                 }
+            }
+            if (!userUsernameMap.containsKey(session)) {
+                return;
             }
             JSONObject plotInformation = new JSONObject();
             plotInformation.put("data", result);
@@ -588,7 +591,7 @@ public class LuceneServlet {
 
             JSONArray result = new JSONArray();
             int freeIndex = plot.freeIndex;
-            boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+            boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex) && plot.nrDataPoints > 1;
             int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
                     queryFactory.valueIndex.indexOf(freeIndex));
             int columnIndex = queryFactory.columnIndex.get(indexPos);
@@ -641,6 +644,9 @@ public class LuceneServlet {
             plotInformation.put("data", result);
             plotInformation.put("name", plotToName.get(plot));
             plotInformation.put("timestamp", time);
+            if (!userUsernameMap.containsKey(session)) {
+                return;
+            }
             session.send(plotInformation.toString());
             System.out.println(plotInformation);
         }
@@ -669,7 +675,7 @@ public class LuceneServlet {
                 JSONArray result = new JSONArray();
 
                 int freeIndex = plot.freeIndex;
-                boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+                boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex) && plot.nrDataPoints > 1;
                 int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
                         queryFactory.valueIndex.indexOf(freeIndex));
                 int columnIndex = queryFactory.columnIndex.get(indexPos);
@@ -722,8 +728,10 @@ public class LuceneServlet {
                 JSONObject plotInformation = new JSONObject();
                 plotInformation.put("data", result);
                 plotInformation.put("width", pixels);
-
                 resultArray.put(plotInformation);
+                if (!userUsernameMap.containsKey(session)) {
+                    return;
+                }
             }
             resultRows.put(resultArray);
         }
@@ -764,7 +772,7 @@ public class LuceneServlet {
                     JSONArray result = new JSONArray();
 
                     int freeIndex = plot.freeIndex;
-                    boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex);
+                    boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex) && plot.nrDataPoints > 1;
                     int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
                             queryFactory.valueIndex.indexOf(freeIndex));
                     int columnIndex = queryFactory.columnIndex.get(indexPos);
@@ -819,6 +827,9 @@ public class LuceneServlet {
                     plotInformation.put("width", pixels);
 
                     resultArray.put(plotInformation);
+                    if (!userUsernameMap.containsKey(session)) {
+                        return;
+                    }
                 }
                 resultRows.put(resultArray);
             }
