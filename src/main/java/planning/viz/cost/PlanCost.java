@@ -40,7 +40,7 @@ public class PlanCost {
                     + queryFactory.combinedPredicate(plot, plot.nrDataPoints);
             explainQueries.add(newQuery + ";");
         }
-        long timer1 = System.currentTimeMillis();
+//        long timer1 = System.currentTimeMillis();
         String costRegex = "[0-9]+\\.[0-9][0-9]\\.\\.[0-9]+\\.[0-9][0-9]";
         Pattern pattern = Pattern.compile(costRegex);
         try {
@@ -79,7 +79,7 @@ public class PlanCost {
             }
         }
 
-        long timer2 = System.currentTimeMillis();
-        System.out.println("Explain time: " + (timer2 - timer1) + " ms");
+//        long timer2 = System.currentTimeMillis();
+//        System.out.println("Explain time: " + (timer2 - timer1) + " ms");
     }
 }

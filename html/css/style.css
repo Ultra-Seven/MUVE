@@ -93,9 +93,27 @@ h1, h2 {
   width: 100%;
 }
 
+#spoken-text {
+  font-size: 28px;
+  font-weight: bold;
+}
+#btn-start-recording {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#btn-submit {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#btn-dev {
+  font-size: 20px;
+  font-weight: bold;
+}
 
 #viz {
-  margin-top: 40px;
+  margin-top: 100px;
   width: 100%;
 }
 
@@ -108,11 +126,11 @@ aside {
 
 #viz_title {
   font-family: Calibri, Optima, Candara, Verdana, Geneva, sans-serif;
-  font-size: 25px;
+  font-size: 40px;
   font-weight: bold;
   text-align: center;
   vertical-align: middle;
-  margin-top: 40px;
+  margin-top: 100px;
 }
 
 

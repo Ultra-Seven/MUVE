@@ -34,6 +34,8 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -310,31 +312,46 @@ public class LuceneServlet {
                 commands.add("q=" + query_list[1]);
                 commands.add(HostConfig.MODEL_HOST);
                 String presenter = query_list[5];
-//
-//                int width = (int) Math.floor(Double.parseDouble(query_list[2]));
-//
-//                ProcessBuilder processBuilder = new ProcessBuilder(commands);
-//                Process process = processBuilder.start();
-//
-//                String result = new BufferedReader(
-//                        new InputStreamReader(process.getInputStream()))
-//                        .lines()
-//                        .collect(Collectors.joining("\n"));
-//                System.out.println(result);
-                String query = query_list[1];
+                String dataset = query_list[0];
 
+                int width = (int) Math.floor(Double.parseDouble(query_list[2]));
+
+                ProcessBuilder processBuilder = new ProcessBuilder(commands);
+                Process process = processBuilder.start();
+
+                String result = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+                JSONObject resultObj = new JSONObject(result);
+                String query = resultObj.getString("sql");
+                query = "SELECT count(*) FROM " + query.split(" FROM ")[1];
+                String predicateReg = "\\w+ = \\?";
+                Pattern p = Pattern.compile(predicateReg);
+                Matcher matcher = p.matcher(query);
+                List<String> predicates = new ArrayList<>();
+                JSONArray paramsJsonArray = resultObj.getJSONArray("params");
+                for (int i = 0, size = paramsJsonArray.length(); i < size; i++) {
+                    boolean isFind = matcher.find();
+                    String column = "\"" + matcher.group(0).split(" = ")[0] + "\"";
+                    String value = "'" + paramsJsonArray.getString(i) + "'";
+                    predicates.add(column + " = " + value);
+                }
+                query = query.split(" WHERE ")[0] + " WHERE " + String.join(" AND ", predicates);
+                System.out.println(result);
+//                String query = query_list[1];
                 try {
                     if (presenter.equals("incremental")) {
-                        incrementalResults(ctx, query, "dob_job", 900, query_list[3], query_list[4]);
+                        incrementalResults(ctx, query, dataset, 900, query_list[3], query_list[4]);
                     }
                     else if (presenter.equals("approximate")) {
-                        approximateResults(ctx, query, "dob_job", 900, query_list[4]);
+                        approximateResults(ctx, query, dataset, 900, query_list[4]);
                     }
                     else if (presenter.equals("backup")) {
-                        ILPBackupSearch(ctx, query, "dob_job", 900, query_list[4]);
+                        ILPBackupSearch(ctx, query, dataset, 900, query_list[4]);
                     }
                     else {
-                        defaultResults(ctx, query, "dob_job", 900, query_list[3], query_list[4]);
+                        defaultResults(ctx, query, dataset, 900, query_list[3], query_list[4]);
                     }
                 }
                 catch (Exception e) {
@@ -659,8 +676,18 @@ public class LuceneServlet {
                                            String planner, String time)
             throws ParseException, JSQLParserException, IOException, SQLException {
         QueryFactory queryFactory = new QueryFactory(query);
+//        int index = 2;
+//        queryFactory.queries[index].probability = 0.5;
+//        for (int i = 0; i < queryFactory.queries.length; i++) {
+//            if (i != index) {
+//                queryFactory.queries[i].probability = 0.5 / (queryFactory.queries.length - 1);
+//                System.out.println(queryFactory.queries[i].probability);
+//            }
+//            System.out.println(queryFactory.queries[i].probability);
+//        }
         List<Map<Plot, List<DataPoint>>> optimalPlan = PlotGreedyPlanner.plan(queryFactory.queries,
                 queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, false);
+//        queryFactory.queries[0].highlighted = true;
         JSONArray resultRows = new JSONArray();
         JSONObject resultObj = new JSONObject();
         for (Map<Plot, List<DataPoint>> plotListMap: optimalPlan) {

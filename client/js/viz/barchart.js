@@ -19,10 +19,11 @@ class Barchart {
             const element = obj["results"][key][0];
             const rank = Math.min(obj["rank"], nrGroups - 1);
             const color = obj["simColor"] || this.colorScales[rank];
+            const split_label = obj["label"].split("_")
             return {
                 simRank: obj["simRank"],
                 y: type === "agg" ? parseInt(element) : obj["results"][key].length,
-                label: obj["label"],
+                label: (split_label.length === 3 ? split_label[1] + "+" + split_label[2] : obj["label"]),
                 color: color,
                 click: (e) => {
                     this.engine.end = Date.now();
@@ -74,9 +75,10 @@ class Barchart {
         let render_data = _.map(this.data, obj => {
             const value = obj["results"];
             const highlighted = obj["highlighted"];
+            const split_label = obj["label"].split("_");
             return {
                 y: type === "agg" ? parseInt(value) : obj["results"][key].length,
-                label: obj["label"],
+                label: (split_label.length === 3 ? split_label[1] + "_" + split_label[2] : obj["label"]),
                 color: highlighted ? this.colorScales[0] : "#0000ff"
             }
         });
@@ -89,8 +91,9 @@ class Barchart {
                 {
                     data: _.map(render_data, dataPoint => dataPoint["y"]),
                     backgroundColor: _.map(render_data, dataPoint => {
-                        const rank = dataPoint["rank"];
-                        const color = rank === 0 ? this.colorScales[0] : "#0000ff";
+                        // const rank = dataPoint["rank"];
+                        // const color = rank === 0 ? this.colorScales[0] : "#0000ff";
+                        const color = dataPoint["color"];
                         return this.hexToRgbA(color, 1);
                     }),
                     rank: _.map(render_data, dataPoint => dataPoint["rank"])
@@ -110,7 +113,7 @@ class Barchart {
                 }],
                 xAxes: [{
                     ticks: {
-                        fontSize: 10,
+                        fontSize: 25,
                         autoSkip: false,
                         maxRotation: 90,
                         minRotation: 90
@@ -119,7 +122,7 @@ class Barchart {
             },
             title: {
                 display: true,
-                fontSize: 20,
+                fontSize: 30,
                 fontColor: fontColor,
                 text: title
             },

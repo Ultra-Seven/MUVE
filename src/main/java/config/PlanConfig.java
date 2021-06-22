@@ -64,9 +64,21 @@ public class PlanConfig {
     /**
      * The ratio of sampling data.
      */
-    public static double SAMPLING_RATE = 5;
+    public static double SAMPLING_RATE = 1;
     /**
      * Threshold timeout for ILP algorithm.
      */
     public static double TIMEOUT = 1.0;
+    /**
+     * The threshold of interactive queries.
+     */
+    public static int THRESHOLD = 2000;
+    /**
+     * The parameters that maps query cost to processing time.
+     */
+    public static double PROCESSING_PARAMETER = 0.005;
+    /**
+     * The bias of linear regression.
+     */
+    public static double BIAS = 735.21122;
 }

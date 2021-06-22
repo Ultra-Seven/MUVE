@@ -419,9 +419,13 @@ public class PlotGreedyPlanner {
 
 
     public static void main(String[] args) throws IOException, ParseException, JSQLParserException, SQLException {
-        String query = "SELECT count(*) FROM dob_job WHERE \"city\" = 'BRONX';";
+//        String query = "SELECT count(*) FROM dob_job WHERE \"city\" = 'BRONX';";
+        String query = "SELECT count(*) FROM sample_311 WHERE \"intersection_street_1\"='EAST  110 STREET'";
+        PlanConfig.TOPK = 10;
+        PlanConfig.PROCESSING_WEIGHT = 0.1;
+        PlanConfig.NR_ROWS = 1;
+        PlanConfig.R = 300;
         QueryFactory queryFactory = new QueryFactory(query);
-
         plan(queryFactory.queries, queryFactory.nrDistinctValues, 2, PlanConfig.R, queryFactory, true);
 
     }

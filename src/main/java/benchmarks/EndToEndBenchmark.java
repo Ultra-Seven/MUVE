@@ -2,6 +2,7 @@ package benchmarks;
 
 import config.HostConfig;
 import config.PlanConfig;
+import connector.PSQLConnector;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.json.JSONArray;
@@ -10,6 +11,7 @@ import planning.query.QueryFactory;
 import planning.viz.DataPoint;
 import planning.viz.Plot;
 import planning.viz.PlotGreedyPlanner;
+import planning.viz.WaitTimeGurobiPlanner;
 import stats.PlanStats;
 
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static benchmarks.PlannerBenchmark.readDatasetQueries;
@@ -28,17 +32,22 @@ public class EndToEndBenchmark {
     public static long optimizeMillis = 0;
     public static long processMillis = 0;
     public static long respondMillis = 0;
+    public static long correctMillis = 0;
+    public static long endMillis = 0;
+    public static double utility = 0;
     public static List<Long> timestamps = new ArrayList<>();
     public static List<Double> distances = new ArrayList<>();
-    public static boolean runEndToEndQuery(String query, int sizeRatio) throws
-            JSQLParserException, IOException, ParseException, SQLException {
+    public static final boolean DYNAMIC = false;
+    public static boolean runEndToEndQuery(String query, int sizeRatio) {
         try {
             long matchStart = System.currentTimeMillis();
             QueryFactory queryFactory = new QueryFactory(query);
             long optimizeStart = System.currentTimeMillis();
             matchMillis = optimizeStart - matchStart;
-            List<Map<Plot, List<DataPoint>>> optimalPlan = PlotGreedyPlanner.plan(queryFactory.queries,
-                    queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, false);
+//            List<Map<Plot, List<DataPoint>>> optimalPlan = PlotGreedyPlanner.plan(queryFactory.queries,
+//                    queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory, false);
+            List<Map<Plot, List<DataPoint>>> optimalPlan = WaitTimeGurobiPlanner.plan(queryFactory.queries,
+                    queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory);
             JSONArray resultRows = new JSONArray();
             long processStart = System.currentTimeMillis();
             optimizeMillis = processStart - optimizeStart;
@@ -50,6 +59,7 @@ public class EndToEndBenchmark {
                 for (Plot plot: plotListMap.keySet()) {
                     int pixels = (int) Math.round((plot.nrDataPoints * PlanConfig.B + PlanConfig.C + 0.0) / sumPixels * 100);
                     String mergedQuery = queryFactory.plotQuery(plot, query, true);
+                    System.out.println(mergedQuery);
                     Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(mergedQuery);
                     JSONArray result = new JSONArray();
@@ -120,6 +130,7 @@ public class EndToEndBenchmark {
             long processEnd = System.currentTimeMillis();
             processMillis = processEnd - processStart;
             respondMillis = matchMillis + optimizeMillis + processMillis;
+            endMillis = respondMillis;
             return true;
         }
         catch (Exception exception) {
@@ -128,11 +139,10 @@ public class EndToEndBenchmark {
 
     }
 
-    public static boolean runIncrementally(String query, int sizeRatio)
-            throws JSQLParserException, IOException, ParseException, SQLException {
+    public static boolean runIncrementally(String query, int sizeRatio) {
+        distances.clear();
+        timestamps.clear();
         try {
-            distances.clear();
-            timestamps.clear();
             long matchStart = System.currentTimeMillis();
             QueryFactory queryFactory = new QueryFactory(query);
             long optimizeStart = System.currentTimeMillis();
@@ -177,8 +187,23 @@ public class EndToEndBenchmark {
             highlightedPlots.addAll(uncoloredPlots);
             PlanConfig.SAMPLING_RATE = sizeRatio;
             highlightedPlots.sort(Comparator.comparingInt(o -> o.nrDataPoints));
+            double maxProb = 0;
+            int correctPlotID = 0;
+            for (int plotCtr = 0; plotCtr < highlightedPlots.size(); plotCtr++) {
+                Plot plot = highlightedPlots.get(plotCtr);
+                for (DataPoint dataPoint: plot.dataPoints) {
+                    if (dataPoint.probability > maxProb) {
+                        correctPlotID = plotCtr;
+                        maxProb = dataPoint.probability;
+                    }
+                }
+            }
+            if (highlightedPlots.size() > 1) {
+                System.out.println(maxProb);
+            }
             for (Plot plot: highlightedPlots) {
                 String mergedQuery = queryFactory.plotQuery(plot, query, true);
+                System.out.println(mergedQuery);
                 Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery(mergedQuery);
 
@@ -241,13 +266,15 @@ public class EndToEndBenchmark {
                 long timer = System.currentTimeMillis();
                 timestamps.add(timer - matchStart);
             }
-            int nrPlots = highlightedPlots.size();
-            for (int distance = nrPlots - 1; distance >= 0; distance--) {
-                distances.add((double) distance / nrPlots);
-            }
+//            int nrPlots = highlightedPlots.size();
+//            for (int distance = nrPlots - 1; distance >= 0; distance--) {
+//                distances.add((double) distance / nrPlots);
+//            }
             respondMillis = timestamps.get(0);
             processMillis = timestamps.get(timestamps.size() - 1) - optimizeMillis;
-            System.out.println(respondMillis);
+            correctMillis = timestamps.get(correctPlotID);
+            endMillis = timestamps.get(timestamps.size() - 1);
+            System.out.println(Arrays.toString(timestamps.toArray()));
             return true;
         }
         catch (Exception exception) {
@@ -256,8 +283,7 @@ public class EndToEndBenchmark {
         }
     }
 
-    public static boolean runApproximately(String query, int sizeRatio)
-            throws JSQLParserException, IOException, ParseException, SQLException {
+    public static boolean runApproximately(String query, int sizeRatio) {
         try {
             distances.clear();
             timestamps.clear();
@@ -278,6 +304,39 @@ public class EndToEndBenchmark {
             List<Map<String, Double>> samplingPlots = new ArrayList<>(optimalPlan.size());
             List<Map<String, Double>> processPlots = new ArrayList<>(optimalPlan.size());
             PlanConfig.SAMPLING_RATE = sizeRatio * 5.0 / 100;
+            if (DYNAMIC) {
+                PlanConfig.SAMPLING_RATE = 1;
+                List<String> mergedQueries = new ArrayList<>();
+                for (Map<Plot, List<DataPoint>> plotToPoints: optimalPlan) {
+                    for (Plot plot: plotToPoints.keySet()) {
+                        String mergedQuery = queryFactory.plotQuery(plot, query, true);
+                        mergedQueries.add(mergedQuery);
+                    }
+                }
+                String costRegex = "[0-9]+\\.[0-9][0-9]\\.\\.[0-9]+\\.[0-9][0-9]";
+                Pattern pattern = Pattern.compile(costRegex);
+                List<Double> explainCost = PSQLConnector.getConnector().explain(mergedQueries)
+                        .stream().filter(output -> output.charAt(0) != ' ')
+                        .mapToDouble(output -> {
+                            Matcher matcher = pattern.matcher(output);
+                            if (matcher.find()) {
+                                String[] numbers = matcher.group(0).split("\\.\\.");
+                                return Double.parseDouble(numbers[1]);
+                            }
+                            else {
+                                return 0.0;
+                            }
+                        }).boxed().collect(Collectors.toList());
+
+                double costs = explainCost.stream().reduce(0.0, Double::sum);
+                double time = costs * PlanConfig.PROCESSING_PARAMETER + PlanConfig.BIAS;
+                double empiricalRate = PlanConfig.THRESHOLD / time * 1 * 2;
+                System.out.println(costs + "\t" + time + "\t" + empiricalRate);
+                PlanConfig.SAMPLING_RATE = Math.min(empiricalRate, sizeRatio);
+//                PlanConfig.SAMPLING_RATE = sizeRatio;
+//                return false;
+            }
+
             for (Map<Plot, List<DataPoint>> plotToPoints: optimalPlan) {
                 JSONArray highlightedDivs = new JSONArray();
                 JSONArray uncoloredDivs = new JSONArray();
@@ -303,6 +362,7 @@ public class EndToEndBenchmark {
 
                     // Sampling data
                     String mergedQuery = queryFactory.plotQuery(plot, query, true);
+//                    System.out.println(mergedQuery);
                     Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(mergedQuery);
 
@@ -334,18 +394,8 @@ public class EndToEndBenchmark {
                                 String targetName = queryFactory.keyToTerms[columnIndex]
                                         [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
                                 JSONObject valueObj = new JSONObject();
-                                valueObj.put("highlighted", highlightedValues.contains(targetName))
-                                        .put("results", value).put("type", "agg")
-                                        .put("label", targetName)
-                                        .put("context", "value")
-                                        .put("groupby", groupBy);
                                 result.put(valueObj);
-                                try {
-                                    plotValues.put(targetName, Double.parseDouble(value));
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
+                                plotValues.put(targetName, Double.parseDouble(value));
                             }
                         }
                     }
@@ -362,11 +412,6 @@ public class EndToEndBenchmark {
                             } catch (Exception ignored) {
 
                             }
-                            valueObj.put("highlighted", highlightedValues.contains(targetName))
-                                    .put("results", value).put("type", "agg")
-                                    .put("label", targetName)
-                                    .put("context", "column")
-                                    .put("groupby", groupBy);
                             plotValues.put(targetName, Double.parseDouble(value));
                             containKeys.add(targetName);
                             result.put(valueObj);
@@ -391,9 +436,14 @@ public class EndToEndBenchmark {
             // Send div specifications
             PlanConfig.SAMPLING_RATE = sizeRatio;
             long processStart = System.currentTimeMillis();
+//            if (DYNAMIC) {
+//                System.out.println(processStart - matchStart);
+//                return false;
+//            }
             highlightedPlots.addAll(uncoloredPlots);
             for (Plot plot: highlightedPlots) {
-                String mergedQuery = queryFactory.plotQuery(plot, query, false);
+                String mergedQuery = queryFactory.plotQuery(plot, query, true);
+                System.out.println(mergedQuery);
                 Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery(mergedQuery);
 
@@ -457,37 +507,142 @@ public class EndToEndBenchmark {
                     }
                 }
                 processPlots.add(plotValues);
-                long processEnd = System.currentTimeMillis();
                 JSONObject plotInformation = new JSONObject();
                 plotInformation.put("data", result);
                 plotInformation.put("name", plotToName.get(plot));
-                respondMillis = processStart - matchStart;
-                processEnd = processEnd - processStart;
-                timestamps.add(respondMillis);
-                timestamps.add(processEnd - matchStart);
-
-                double distanceSum = 0;
-                int nrPlots = processPlots.size();
-                for (int plotCtr = 0; plotCtr < nrPlots; plotCtr++) {
-                    Map<String, Double> samplingPlot = samplingPlots.get(plotCtr);
-                    Map<String, Double> fullPlot = processPlots.get(plotCtr);
-
-                    double distance = fullPlot.entrySet().stream().mapToDouble(entry -> {
-                        String key = entry.getKey();
-                        double fullValue = entry.getValue();
-                        double samplingValue = samplingPlot.getOrDefault(key, 0.0);
-                        return Math.abs(samplingValue - fullValue) / fullValue;
-                    }).sum();
-                    distanceSum += distance;
-
-                }
-                distances.add(distanceSum);
-                distances.add(0.0);
-
             }
+            long processEnd = System.currentTimeMillis();
+            respondMillis = processStart - matchStart;
+            processMillis = processEnd - processStart;
+            endMillis = processEnd - matchStart;
+
+            double fullUtility = 0;
+            double lossUtility = 0;
+            for (int plotCtr = 0; plotCtr < processPlots.size(); plotCtr++) {
+                Map<String, Double> samplePlot = samplingPlots.get(plotCtr);
+                Map<String, Double> fullPlot = processPlots.get(plotCtr);
+
+                for (Map.Entry<String, Double> entry: fullPlot.entrySet()) {
+                    String label = entry.getKey();
+                    double base = entry.getValue();
+                    double value = samplePlot.getOrDefault(label, 0.);
+                    double loss = Math.abs(base - value);
+                    lossUtility += loss;
+                    fullUtility += base;
+                }
+            }
+            utility = (lossUtility / fullUtility);
             return true;
         }
         catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private static boolean runILPBackoff (String query, int sizeRatio) {
+        distances.clear();
+        timestamps.clear();
+        try {
+            long matchStart = System.currentTimeMillis();
+            QueryFactory queryFactory = new QueryFactory(query);
+            double[] timeouts = new double[]{0.05, 0.1, 0.25, 0.5, 1.0};
+            long optimizeStart = System.currentTimeMillis();
+            matchMillis = optimizeStart - matchStart;
+            PlanConfig.SAMPLING_RATE = sizeRatio;
+            for (Double timeout: timeouts) {
+                PlanConfig.TIMEOUT = timeout;
+                List<Map<Plot, List<DataPoint>>> optimalPlan = WaitTimeGurobiPlanner.plan(queryFactory.queries,
+                        queryFactory.nrDistinctValues, PlanConfig.NR_ROWS, PlanConfig.R, queryFactory);
+                JSONArray resultRows = new JSONArray();
+                JSONObject resultObj = new JSONObject();
+                for (Map<Plot, List<DataPoint>> plotListMap: optimalPlan) {
+                    JSONArray resultArray = new JSONArray();
+                    int sumPixels = plotListMap.values().stream().mapToInt(points ->
+                            points.size() * PlanConfig.B + PlanConfig.C).sum();
+                    for (Plot plot: plotListMap.keySet()) {
+                        List<DataPoint> points = plotListMap.get(plot);
+                        plot.dataPoints.clear();
+                        plot.nrDataPoints = 0;
+                        points.forEach(plot::addDataPoint);
+
+                        int nrSize = points.size();
+                        int pixels = (int) Math.round((nrSize * PlanConfig.B + PlanConfig.C + 0.0) / sumPixels * 90);
+                        String mergedQuery = queryFactory.plotQuery(plot, query, true);
+                        System.out.println(mergedQuery);
+                        Statement statement = connection.createStatement();
+                        ResultSet rs = statement.executeQuery(mergedQuery);
+                        JSONArray result = new JSONArray();
+
+                        int freeIndex = plot.freeIndex;
+                        boolean isLiteral = !queryFactory.valueIndex.contains(freeIndex) && plot.nrDataPoints > 1;
+                        int indexPos = Math.max(queryFactory.columnIndex.indexOf(freeIndex),
+                                queryFactory.valueIndex.indexOf(freeIndex));
+                        int columnIndex = queryFactory.columnIndex.get(indexPos);
+                        int valueIndex = queryFactory.valueIndex.get(indexPos);
+                        int[] vector = plot.dataPoints.get(0).vector;
+
+                        String groupBy = isLiteral ? queryFactory.keyToTerms[valueIndex][vector[valueIndex]]
+                                : queryFactory.keyToTerms[columnIndex][vector[columnIndex]];
+                        // A list of highlighted labels
+                        List<String> highlightedValues = plot.dataPoints.stream()
+                                .filter(x -> x.highlighted)
+                                .map(x -> isLiteral ? queryFactory.keyToTerms[columnIndex][x.vector[columnIndex]]
+                                        : queryFactory.keyToTerms[valueIndex][x.vector[valueIndex]]).collect(Collectors.toList());
+                        if (isLiteral) {
+                            rs.next();
+                            for (int columnCtr = 1; columnCtr <= plot.nrDataPoints; columnCtr++) {
+                                String value = rs.getString(columnCtr);
+                                String targetName = queryFactory.keyToTerms[columnIndex]
+                                        [plot.dataPoints.get(columnCtr - 1).vector[columnIndex]];
+                                JSONObject valueObj = new JSONObject();
+                                valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                        .put("results", value).put("type", "agg")
+                                        .put("label", targetName)
+                                        .put("context", "value")
+                                        .put("groupby", groupBy);
+                                result.put(valueObj);
+                            }
+                        }
+                        else {
+                            while (rs.next()) {
+                                String value = rs.getString(1);
+                                String targetName = rs.getString(2);
+                                JSONObject valueObj = new JSONObject();
+                                // Validate number
+                                try {
+                                    value = value.equals("null") ? "0" : value;
+                                    value = new BigDecimal(value).toPlainString();
+                                } catch (Exception ignored) {
+
+                                }
+
+                                valueObj.put("highlighted", highlightedValues.contains(targetName))
+                                        .put("results", value).put("type", "agg")
+                                        .put("label", targetName)
+                                        .put("context", "column")
+                                        .put("groupby", groupBy);
+                                result.put(valueObj);
+                            }
+                        }
+                        JSONObject plotInformation = new JSONObject();
+                        plotInformation.put("data", result);
+                        plotInformation.put("width", pixels);
+
+                        resultArray.put(plotInformation);
+
+                    }
+                    resultRows.put(resultArray);
+                }
+                resultObj.put("data", resultRows);
+                timestamps.add(System.currentTimeMillis() - optimizeStart);
+                distances.add(PlanStats.waitTime);
+            }
+            respondMillis = timestamps.get(0);
+            endMillis = timestamps.get(timestamps.size() - 1);
+            processMillis = endMillis - timestamps.get(timestamps.size() - 2);
+            utility = distances.get(0) - distances.get(timestamps.size() - 1);
+            return true;
+        } catch (Exception exception) {
             return false;
         }
     }
@@ -496,32 +651,44 @@ public class EndToEndBenchmark {
         PrintWriter printWriter;
         PlanConfig.R = 300;
         PlanConfig.TOPK = 20;
-        PlanConfig.PROCESSING_WEIGHT = 0;
+        PlanConfig.PROCESSING_WEIGHT = 0.1;
         PlanConfig.NR_ROWS = 1;
         if (sys == 0) {
-            printWriter = new PrintWriter("varySize_incremental.csv");
+            printWriter = new PrintWriter("test.csv");
         }
         else if (sys == 1) {
-            printWriter = new PrintWriter("varySize_approximate.csv");
+            printWriter = new PrintWriter("test.csv");
+        }
+        else if (sys == 2) {
+            printWriter = new PrintWriter("test.csv");
+        }
+        else if (sys == 3) {
+            printWriter = new PrintWriter("test.csv");
         }
         else {
-            printWriter = new PrintWriter("varySize_greedy.csv");
+            printWriter = new PrintWriter("test.csv");
         }
-        int[] dataSizes = new int[]{1, 5, 10, 50, 80, 100};
+        int[] dataSizes = new int[]{50, 80, 100};
         printWriter.println("Query\tSize\tNrPlots\tNrPredicates\tWaitTime\tMatchMillis" +
-                "\tOptimizeMillis\tProcessMillis\tRespondMillis\tTimestamps\tDistances");
+                "\tOptimizeMillis\tProcessMillis\tRespondMillis\tEndMillis\tCorrectMillis\tUtility");
         for (int sizeCtr = 0; sizeCtr < dataSizes.length; sizeCtr++) {
             int size = dataSizes[sizeCtr];
             System.out.println("Evaluating Size: " + size);
             int queryCtr = 0;
-            for(String query: readDatasetQueries(DATASET)) {
-                System.out.println(query);
+            List<String> queries = readDatasetQueries(DATASET);
+            for(String query: queries) {
                 boolean success;
                 if (sys == 0) {
                     success = runIncrementally(query, size);
                 }
                 else if (sys == 1) {
                     success = runApproximately(query, size);
+                }
+                else if (sys == 2) {
+                    success = runApproximately(query, size);
+                }
+                else if (sys == 3) {
+                    success = runILPBackoff(query, size);
                 }
                 else {
                     success = runEndToEndQuery(query, size);
@@ -537,8 +704,11 @@ public class EndToEndBenchmark {
                     printWriter.print(optimizeMillis + "\t");
                     printWriter.print(processMillis + "\t");
                     printWriter.print(respondMillis + "\t");
-                    printWriter.print(timestamps.stream().map(String::valueOf).collect(Collectors.joining("|")) + "\t");
-                    printWriter.println(distances.stream().map(String::valueOf).collect(Collectors.joining("|")));
+                    printWriter.print(endMillis + "\t");
+                    printWriter.print(correctMillis + "\t");
+                    printWriter.println(utility);
+//                    printWriter.print(timestamps.stream().map(String::valueOf).collect(Collectors.joining("|")) + "\t");
+//                    printWriter.println(distances.stream().map(String::valueOf).collect(Collectors.joining("|")));
                 }
             }
         }
@@ -552,7 +722,7 @@ public class EndToEndBenchmark {
         props.setProperty("password", "postgres");
         connection = DriverManager.getConnection(url, props);
 
-        benchmarkDataSize(0);
+        benchmarkDataSize(3);
 //        List<String> queries = readDatasetQueries(DATASET);
 //        for (String query: queries) {
 //            runIncrementally(query, 1);

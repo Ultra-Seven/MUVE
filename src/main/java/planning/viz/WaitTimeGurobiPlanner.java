@@ -88,7 +88,10 @@ public class WaitTimeGurobiPlanner {
         PlanStats.nrQueries = nrQueries;
         PlanStats.nrPlots = nrPlots;
         if (PlanConfig.PROCESSING_WEIGHT > Double.MIN_VALUE) {
-            PlanCost.processCost(idToPlots.values(), factory);
+            for (DataPoint dataPoint: scorePoints) {
+                dataPoint.cost = 50;
+            }
+//            PlanCost.processCost(idToPlots.values(), factory);
         }
         else {
             for (DataPoint dataPoint: scorePoints) {
@@ -144,7 +147,7 @@ public class WaitTimeGurobiPlanner {
 
         // Create empty environment, set options, and start
         GRBEnv env = new GRBEnv(true);
-
+        env.set("LogToConsole", "0");
 //        env.set("logFile", "waitTime.log");
         env.start();
 
@@ -539,10 +542,10 @@ public class WaitTimeGurobiPlanner {
                     int highlightID = variableIndex * nrRows + rowCtr + nrPlotInRows;
                     int uncoloredID = variableIndex * nrRows + rowCtr + nrQueryInPlotsInRows + nrPlotInRows;
 
-//                    double coefficient = PlanConfig.PROCESSING_WEIGHT > Double.MIN_VALUE ?
-//                            (-1 * readTime + PlanConfig.PROCESSING_WEIGHT * cost) * probability:
-//                            -1 * readTime * probability;
-                    double coefficient = -1 * readTime * probability;
+                    double coefficient = PlanConfig.PROCESSING_WEIGHT > Double.MIN_VALUE ?
+                            (-1 * readTime + PlanConfig.PROCESSING_WEIGHT * cost) * probability:
+                            -1 * readTime * probability;
+//                    double coefficient = -1 * readTime * probability;
                     expr.addTerm(coefficient, vars[highlightID]);
                     expr.addTerm(coefficient, vars[uncoloredID]);
                 }
@@ -701,18 +704,18 @@ public class WaitTimeGurobiPlanner {
         model.dispose();
         env.dispose();
 
-        int rowCtr = 1;
-        for (Map<Plot, List<DataPoint>> resultsPerRow: results) {
-            System.out.println("Row: " + rowCtr);
-            for (Plot plot: resultsPerRow.keySet()) {
-                System.out.println("Group by: " + plot);
-                for (DataPoint dataPoint: resultsPerRow.get(plot)) {
-                    System.out.println(factory.queryString(dataPoint) +
-                            "\tScore:" + dataPoint.probability + "\tRed:" + dataPoint.highlighted);
-                }
-            }
-            rowCtr++;
-        }
+//        int rowCtr = 1;
+//        for (Map<Plot, List<DataPoint>> resultsPerRow: results) {
+//            System.out.println("Row: " + rowCtr);
+//            for (Plot plot: resultsPerRow.keySet()) {
+//                System.out.println("Group by: " + plot);
+//                for (DataPoint dataPoint: resultsPerRow.get(plot)) {
+//                    System.out.println(factory.queryString(dataPoint) +
+//                            "\tScore:" + dataPoint.probability + "\tRed:" + dataPoint.highlighted);
+//                }
+//            }
+//            rowCtr++;
+//        }
 
         return results;
     }
@@ -720,7 +723,7 @@ public class WaitTimeGurobiPlanner {
     public static void main(String[] args) throws ParseException, JSQLParserException,
             IOException, GRBException, SQLException {
         String query = "SELECT count(*) FROM sample_311 WHERE \"intersection_street_1\"='EAST  110 STREET'";
-        PlanConfig.TOPK = 5;
+        PlanConfig.TOPK = 10;
         PlanConfig.PROCESSING_WEIGHT = 0;
         PlanConfig.NR_ROWS = 1;
         PlanConfig.R = 300;

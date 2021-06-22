@@ -51,7 +51,7 @@ class Engine {
             this.connector.sender.setCallback(this.sender[presenter].callback);
             $("#spoken-text").val(sentences);
             const params = [name, sentences, $("#viz").width(), $("#planner").val(), Date.now(), presenter];
-            this.connector.send(params.join(";"));
+            this.connector.send(params.join("|"));
         };
     }
 
@@ -77,7 +77,7 @@ class Engine {
                 const data = row[group]["data"];
                 $("#" + rowName).append(
                     "<div id='" + barName +
-                    "' style='width: " + width + "%; height: 350px;display: inline-block;'></div>"
+                    "' style='width: " + width + "%; height: 450px;display: inline-block;'></div>"
                 );
                 $("#" + barName).append("<canvas id='canvas_" + barName + "'></canvas>");
 
@@ -108,7 +108,7 @@ class Engine {
                 // else {
                 //     aggPrefix = "Count of ";
                 // }
-                // $("#viz_title").html("Visualizations for " + aggPrefix + target);
+                $("#viz_title").html("Number of complaint type");
             }
 
         });
