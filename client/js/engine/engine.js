@@ -19,7 +19,7 @@ class Engine {
             "backup": new BackSender(this)
         }
         let params;
-        const route = /stream/;
+        const route = config["route"] || "/stream/";
         if (AJAX) {
             params = {
                 sender: "AJAX",
@@ -87,28 +87,29 @@ class Engine {
                     barChart.drawBarChartUsingChartJS(data);
                 }
                 // Title name
-                // const key = Object.keys(data[0]["results"])[0];
-                // const key_arr = _.filter(key.split(/[()]+/), element => element !== "");
-                // const aggTitle = key_arr[0];
-                // const target = (key_arr.length === 1 ?
-                //     key_arr[0] : key_arr[1]).replaceAll("_"," ");
-                // let aggPrefix;
-                // if (aggTitle.startsWith("max")) {
-                //     aggPrefix = "Maximum of ";
-                // }
-                // else if (aggTitle.startsWith("min")) {
-                //     aggPrefix = "Minimum of ";
-                // }
-                // else if (aggTitle.startsWith("sum")) {
-                //     aggPrefix = "Sum of ";
-                // }
-                // else if (aggTitle.startsWith("avg")) {
-                //     aggPrefix = "Average of ";
-                // }
-                // else {
-                //     aggPrefix = "Count of ";
-                // }
-                $("#viz_title").html("Number of complaint type");
+                const key = data[0]["title"];
+                const key_arr = _.filter(key.split(/[()]+/), element => element !== "");
+                const aggTitle = key_arr[0];
+                const target = (key_arr.length === 1 ?
+                    key_arr[0] : key_arr[1]).replaceAll("_"," ");
+                let aggPrefix;
+                if (aggTitle.startsWith("max")) {
+                    aggPrefix = "Maximum of ";
+                }
+                else if (aggTitle.startsWith("min")) {
+                    aggPrefix = "Minimum of ";
+                }
+                else if (aggTitle.startsWith("sum")) {
+                    aggPrefix = "Sum of ";
+                }
+                else if (aggTitle.startsWith("avg")) {
+                    aggPrefix = "Average of ";
+                }
+                else {
+                    aggPrefix = "Count of ";
+                }
+                $("#viz_title").html(aggPrefix + target);
+                // $("#viz_title").html("Number of complaint type");
             }
 
         });

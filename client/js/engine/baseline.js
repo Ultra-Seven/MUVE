@@ -3,7 +3,8 @@ import _ from "underscore";
 class Baseline {
     constructor(config) {
         this.render_data = [];
-        const route = "/dataTone/";
+        const showCandidates = config["showCandidates"] || false
+        const route = showCandidates ? "/dataTone/" : "/best/";
         const params = {
             sender: "WS",
             callback: (msg) => {
@@ -13,7 +14,12 @@ class Baseline {
 
                 }
                 else {
-                    this.draw(this.render_data);
+                    if (showCandidates) {
+                        this.draw(this.render_data);
+                    }
+                    else {
+                        this.drawResults(this.render_data);
+                    }
                 }
                 this.renderTime = Date.now();
             },
@@ -24,19 +30,24 @@ class Baseline {
             sender: "AJAX",
             callback: (resultData) => {
                 const data = JSON.parse(resultData);
-                if (data.length > 0) {
-                    $("#output").empty();
-                    let tableElement = "<table class=\"ui table\"><thead>" +
-                        "<tr><th>Row</th><th>Result</th></tr></thead><tbody>";
-                    _.each(data, (row, idx) => {
-                        tableElement += "<tr><td>" + idx + "</td><td>" + row + "</td></tr>";
-                    });
-                    tableElement += "</tbody></table>";
-                    $("#output").append(tableElement);
+                if (showCandidates) {
+                    if (data.length > 0) {
+                        $("#output").empty();
+                        let tableElement = "<table class=\"ui table\"><thead>" +
+                            "<tr><th>Row</th><th>Result</th></tr></thead><tbody>";
+                        _.each(data, (row, idx) => {
+                            tableElement += "<tr><td>" + idx + "</td><td>" + row + "</td></tr>";
+                        });
+                        tableElement += "</tbody></table>";
+                        $("#output").append(tableElement);
+                    }
+                    else {
+                        $("#output").empty();
+                        $("#output").append("<p>No results</p>");
+                    }
                 }
                 else {
-                    $("#output").empty();
-                    $("#output").append("<p>No results</p>");
+                    console.log("")
                 }
                 this.end = Date.now();
             },
@@ -129,6 +140,17 @@ class Baseline {
         $("#query_interaction").append(this.buildDropdown("curValues", curVal,
             values, ["#d2fdb9", "#6cfa1b", "#2e8100"]));
         $(".select-query").dropdown();
+    }
+
+    drawResults(results) {
+        const sql = results["sql"];
+        const queryResults = results["result"];
+
+        $("#viz").empty();
+        $("#viz").append("<a class=\"ui grey label Large\" " +
+            "style=\"display: flex;align-items: center;\">" + sql + "</a>");
+        $("#viz").append("<a class=\"ui grey label Large\" " +
+            "style=\"display: flex;align-items: center;\">" + queryResults + "</a>");
     }
 
     buildDropdown(name, val, list, colors) {

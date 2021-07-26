@@ -9,6 +9,8 @@ import Engine from "./engine/engine";
 import Study from "./exp/user_study";
 import Dob_Job from "./dataset/dob_job";
 import Cognition from "./exp/cognition";
+import AmbiguousStudy from "./exp/user_study_ambiguous";
+import Customer from "./dataset/customer";
 let name = "sample_311";
 recognition.lang = 'en-US';
 $("#btn-start-recording").click(() => {
@@ -27,6 +29,9 @@ $("#datasets").on('change', function() {
     else if (name === "dob_job") {
         dobJob.setup();
     }
+    else if (name === "customer") {
+        customer.setup()
+    }
     else {
         console.log("NO datasets");
     }
@@ -41,8 +46,9 @@ $("#query_content").height(Math.floor(window_height * 0.12) + "px");
 const sample311 = new Sample_311();
 const sampleAU = new Sample_AU();
 const dobJob = new Dob_Job();
+const customer = new Customer();
 
-sample311.setup();
+customer.setup();
 
 window.onresize = () => {
     window_height = window.innerHeight
@@ -56,7 +62,12 @@ window.onresize = () => {
 const config = new Config();
 const title = $(document).find("title").text();
 let engine;
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
 if (title === "MUVE Online Demo") {
+    if (urlParams.get('sys') === "baseline") {
+        config["route"] = "/best/"
+    }
     engine = new Engine(config);
 }
 else if (title === "Baseline") {
@@ -66,8 +77,6 @@ else if (title === "Baseline") {
 recognition.onresult = engine.sendHandler;
 $("#btn-submit").click(engine.sendHandler);
 
-const queryString = window.location.search;
-const urlParams = new URLSearchParams(queryString);
 const mode = urlParams.get('mode');
 if (mode === "test") {
     $("#btn-dev").html("Go back");
@@ -85,6 +94,9 @@ else if (mode === "study") {
 }
 else if (mode === "cognition") {
     const cognitionEngine = new Cognition(urlParams, engine, config);
+}
+else if (mode === "study2") {
+    const studyEngine = new AmbiguousStudy(urlParams, engine, config);
 }
 else if (mode === "present") {
     const sender = urlParams.get('sender');

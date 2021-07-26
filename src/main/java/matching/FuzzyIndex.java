@@ -13,6 +13,7 @@ public class FuzzyIndex {
     public static final String JOB_FILE = "/Users/tracy/Downloads/dob_job.csv";
     public static final String LARGE_JOB_FILE = "/Users/tracy/Downloads/DOB_Job_Application_Filings.csv";
     public static final String DELAYED_FLIGHT = "/Users/tracy/Documents/PythonProject/flights/csv/delayed_flight.csv";
+    public static final String CUSTOMER = "/Users/tracy/Downloads/customer.csv";
     public static final String FIELD_CONTENTS = "content";
     public static final String FIELD_PATH = "path";
 
@@ -21,8 +22,9 @@ public class FuzzyIndex {
 //        Schema schema = new Sample311();
 //        Schema schema = new SampleAu();
 //        Schema schema = new DobJob();
-        Schema schema = new DelayedFlight();
-        String inputFilePath = DELAYED_FLIGHT;
+//        Schema schema = new DelayedFlight();
+        Schema schema = new Customer();
+        String inputFilePath = CUSTOMER;
         String[] name_arr = inputFilePath.split("/");
 
         String name = name_arr[name_arr.length - 1].split("\\.")[0];

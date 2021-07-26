@@ -176,6 +176,69 @@ public class LuceneServlet {
             });
         });
 
+        app.ws("/best", ws -> {
+            ws.onConnect(ctx -> {
+                String username = "User" + nextUserNumber++;
+                userUsernameMap.put(ctx, username);
+            });
+            ws.onClose(ctx -> userUsernameMap.remove(ctx));
+            ws.onMessage(ctx -> {
+                String message = ctx.message();
+                String[] query_list = message.split("\\|");
+                String dataset = query_list[0];
+                String sentence = query_list[1];
+                String presenter = query_list[5];
+                List<String> commands = new ArrayList<>(6);
+                commands.add("curl");
+                commands.add("-F");
+                commands.add("t=" + dataset);
+                commands.add("-F");
+                commands.add("q=" + sentence);
+                commands.add(HostConfig.MODEL_HOST);
+
+                ProcessBuilder processBuilder = new ProcessBuilder(commands);
+                Process process = processBuilder.start();
+
+                String result = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+                JSONObject resultObj = new JSONObject(result);
+
+                String query = resultObj.getString("sql");
+                String select = query.split(" FROM")[0].split(" ")[1];
+                if (select.startsWith("(")) {
+                    query = "SELECT max" + select + " FROM " + query.split(" FROM ")[1];
+                }
+                String predicateReg = "\\w+ = \\?";
+
+                Pattern p = Pattern.compile(predicateReg);
+                Matcher matcher = p.matcher(query);
+                List<String> predicates = new ArrayList<>();
+                JSONArray paramsJsonArray = resultObj.getJSONArray("params");
+                for (int i = 0, size = paramsJsonArray.length(); i < size; i++) {
+                    boolean isFind = matcher.find();
+                    String column = "\"" + matcher.group(0).split(" = ")[0] + "\"";
+                    String value = "'" + paramsJsonArray.getString(i) + "'";
+                    predicates.add(column + " = " + value);
+                }
+                query = query.split(" WHERE ")[0] + " WHERE " + String.join(" AND ", predicates);
+                System.out.println(result);
+                int before = PlanConfig.TOPK;
+                PlanConfig.TOPK = 1;
+                try {
+                    defaultResults(ctx, query, dataset, 900, query_list[3], query_list[4]);
+                    PlanConfig.TOPK = before;
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                    System.out.println("Error");
+                    PlanConfig.TOPK = before;
+                    ctx.send("{\"data\": [], debug: {}");
+                }
+            });
+        });
+
         app.ws("/dataTone", ws -> {
             ws.onConnect(ctx -> {
                 String username = "User" + nextUserNumber++;
@@ -205,6 +268,7 @@ public class LuceneServlet {
                 System.out.println(result);
 
                 try {
+
                     JSONObject jsonObject = new JSONObject(result);
                     String sql = jsonObject.getString("sql") + ";";
                     Select sqlStatement = (Select) CCJSqlParserUtil.parse(sql);
@@ -325,7 +389,11 @@ public class LuceneServlet {
                         .collect(Collectors.joining("\n"));
                 JSONObject resultObj = new JSONObject(result);
                 String query = resultObj.getString("sql");
-                query = "SELECT count(*) FROM " + query.split(" FROM ")[1];
+                String select = query.split(" FROM")[0].split(" ")[1];
+                if (select.startsWith("(")) {
+                    query = "SELECT max" + select + " FROM " + query.split(" FROM ")[1];
+                }
+//                query = "SELECT count(*) FROM " + query.split(" FROM ")[1];
                 String predicateReg = "\\w+ = \\?";
                 Pattern p = Pattern.compile(predicateReg);
                 Matcher matcher = p.matcher(query);
@@ -676,6 +744,7 @@ public class LuceneServlet {
                                            String planner, String time)
             throws ParseException, JSQLParserException, IOException, SQLException {
         QueryFactory queryFactory = new QueryFactory(query);
+        String title = query.split(" FROM ")[0].split(" ")[1];
 //        int index = 2;
 //        queryFactory.queries[index].probability = 0.5;
 //        for (int i = 0; i < queryFactory.queries.length; i++) {
@@ -727,7 +796,7 @@ public class LuceneServlet {
                                 .put("results", value).put("type", "agg")
                                 .put("label", targetName)
                                 .put("context", "value")
-                                .put("groupby", groupBy);
+                                .put("groupby", groupBy).put("title", title);
                         result.put(valueObj);
                     }
                 }
@@ -743,12 +812,11 @@ public class LuceneServlet {
                         } catch (Exception ignored) {
 
                         }
-
                         valueObj.put("highlighted", highlightedValues.contains(targetName))
                                 .put("results", value).put("type", "agg")
                                 .put("label", targetName)
                                 .put("context", "column")
-                                .put("groupby", groupBy);
+                                .put("groupby", groupBy).put("title", title);
                         result.put(valueObj);
                     }
                 }

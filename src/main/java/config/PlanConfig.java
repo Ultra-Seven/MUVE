@@ -24,11 +24,11 @@ public class PlanConfig {
     /**
      * The number of rows in given area.
      */
-    public static int NR_ROWS = 2;
+    public static int NR_ROWS = 1;
     /**
      * Select first few queries that have the highest probability.
      */
-    public static int TOPK = 50;
+    public static int TOPK = 5;
     /**
      * Duration of reading each title.
      */

@@ -399,6 +399,7 @@ public class QueryFactory {
             Expression selectExpr = ((SelectExpressionItem)item).getExpression();
             selectExpr.accept(selector);
         }
+        replaceIndex.clear();
         // Parse from tables
         this.fromPos = terms.size();
         terms.add("FROM");
